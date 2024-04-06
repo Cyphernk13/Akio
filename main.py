@@ -1,3 +1,4 @@
+import os
 #Creator: Cypher, Date Created: 20/12/22
 #Libraries needed to install to run the bot--> discord,animec,requests
 import discord
@@ -9,7 +10,8 @@ import asyncio
 # import wikipedia
 # import youtube_dl
 # import nacl
-from youtube_search import YoutubeSearch
+from googletrans import Translator
+# from youtube_search import YoutubeSearch
 intents=discord.Intents.all()
 bot = commands.Bot(command_prefix='akio ',help_command=None,intents=intents)
 
@@ -17,10 +19,26 @@ bot = commands.Bot(command_prefix='akio ',help_command=None,intents=intents)
 
 
 ##-------->Setting up Bot<------------##
+
+# from flask import Flask
+# from threading import Thread
+# app = Flask('')
+# @app.route('/')
+# def home():
+#     return "Hello. I am alive!"
+# def run():
+#     app.run(host='0.0.0.0', port=8080)
+# def keep_alive():
+#     t = Thread(target=run)
+#     t.start()
+
+
+
 @bot.event
 async def on_ready():
     await bot.change_presence(activity=discord.Game(name="akio help"))
     print(f'Logged in as {bot.user.name}')
+    await bot.tree.sync()
 
 
 '''
@@ -32,21 +50,23 @@ async def on_ready():
 
 ##------------>TENOR GIF URL API FUNCTION<-----------##
 def get_top_8_gifs(query):
-    apikey = "REPLACE THIS WITH YOUR TENOR API KEY!"  # click to set to your apikey
+    os.environ['TENOR_API_KEY'] = 'Add your tenor gif api key'
+    apikey = os.getenv('TENOR_API_KEY') # Ensure this is your correct API key
     lmt = 30
     ckey = "my_test_app"
     try:
         response = requests.get(
-    "https://tenor.googleapis.com/v2/search?q=%s&key=%s&client_key=%s&limit=%s" %       (query, apikey, ckey,  lmt))
+            "https://tenor.googleapis.com/v2/search?q=%s&key=%s&client_key=%s&limit=%s" % (query, apikey, ckey, lmt))
         response.raise_for_status()
         data = response.json()
         gifs = data.get("results", [])
         top_8_gifs = [gif["media_formats"]["gif"]["url"] for gif in gifs]
+        # print("Top 8 GIFs:", top_8_gifs)  # Add this line to print the fetched GIFs
         return top_8_gifs
     except requests.exceptions.RequestException as e:
         print(f"Error occurred: {e}")
         return []
-    
+
 
 
 """
@@ -58,7 +78,7 @@ def get_top_8_gifs(query):
 
 
 ##--------->COMMANDS<---------------##
-@bot.command()
+@bot.hybrid_command()
 ##----->HELLO COMMAND👋🏻<-------##
 async def hello(ctx):
     await ctx.send(f'Hello, {ctx.author.name}!')
@@ -152,6 +172,23 @@ async def slap(ctx,member: discord.Member = None):
             auto.title = f"{ctx.author.name} slapped {member.name}!"
     else:
         auto.title = f"Baka!! {ctx.author.name}, here you deserve it >:(..."
+    auto.set_image(url=random.choice(l))
+    await ctx.send(embed=auto)
+
+#-------------->KICK COMMAND 🦵🏻<--------------#
+@bot.command()
+async def kick(ctx,member: discord.Member = None):
+    # Example usage
+    query = ["Anime kick","kick anime","anime kicking","brutal anime kick"]
+    l = get_top_8_gifs(random.choice(query))
+    auto=discord.Embed(color=discord.Color.random())
+    if member:
+        if member.name==ctx.author.name:
+            auto.title = f"Idiot!! {ctx.author.name}, here you deserve it >:(..."
+        else:
+            auto.title = f"{ctx.author.name} kicked {member.name}!"
+    else:
+        auto.title = f"Idiot!! {ctx.author.name}, here you deserve it >:(..."
     auto.set_image(url=random.choice(l))
     await ctx.send(embed=auto)
 
@@ -250,6 +287,24 @@ async def pout(ctx,member: discord.Member = None):
     auto.set_image(url=random.choice(l))
     await ctx.send(embed=auto)
 
+#-------------->cry COMMAND 😒<--------------#
+@bot.command()
+async def cry(ctx,member: discord.Member = None):
+    # Example usage
+    query = ["Anime cry","crying anime","anime crying","cute anime cry"]
+    l = get_top_8_gifs(random.choice(query))
+    auto=discord.Embed(color=discord.Color.random())
+    if member:
+        if member.name==ctx.author.name:
+            auto.title = f"{ctx.author.name} is sad....there there :("
+        else:
+            auto.title = f"{ctx.author.name} is crying...🥹"
+    else:
+        auto.title = f"{ctx.author.name} is crying 😭"
+        pass
+    auto.set_image(url=random.choice(l))
+    await ctx.send(embed=auto)
+
 
 #-------------->SPIN COMMAND 💫<--------------#
 @bot.command()
@@ -265,6 +320,42 @@ async def spin(ctx,member: discord.Member = None):
             auto.title = f"{member.name} is spinning hard!!"
     else:
         auto.title = f"Woah {ctx.author.name} is spinning! "
+        pass
+    auto.set_image(url=random.choice(l))
+    await ctx.send(embed=auto)
+
+#-------------->Tickle COMMAND 💫<--------------#
+@bot.command()
+async def tickle(ctx,member: discord.Member = None):
+    # Example usage
+    query = ["Anime tickle","tickling anime","anime tickling","cute anime tickle"]
+    l = get_top_8_gifs(random.choice(query))
+    auto=discord.Embed(color=discord.Color.random())
+    if member:
+        if member.name==ctx.author.name:
+            auto.title = f"{ctx.author.name} hahahaha!"
+        else:
+            auto.title = f"{ctx.author.name} tickles {member.name} huehuehue!"
+    else:
+        auto.title = f"hahaha {ctx.author.name} stop it!"
+        pass
+    auto.set_image(url=random.choice(l))
+    await ctx.send(embed=auto)
+
+#-------------->ROAST COMMAND 💫<--------------#
+@bot.command()
+async def roast(ctx,member: discord.Member = None):
+    # Example usage
+    query = ["Anime roast","roasting anime","anime roasting","angry anime roast"]
+    l = get_top_8_gifs(random.choice(query))
+    auto=discord.Embed(color=discord.Color.random())
+    if member:
+        if member.name==ctx.author.name:
+            auto.title = f"{ctx.author.name} haha how was that?"
+        else:
+            auto.title = f"{ctx.author.name} roasts {member.name} 😈"
+    else:
+        auto.title = f"{ctx.author.name} haha how was that?"
         pass
     auto.set_image(url=random.choice(l))
     await ctx.send(embed=auto)
@@ -453,6 +544,23 @@ async def clap(ctx,member: discord.Member = None):
     auto.set_image(url=random.choice(l))
     await ctx.send(embed=auto)
 
+#-------------->SMIRK COMMAND 😏<--------------#
+@bot.command()
+async def smirk(ctx,member: discord.Member = None):
+    # Example usage
+    query = ["Anime smirk","smirking anime","anime smirking","cute anime smirk"]
+    l = get_top_8_gifs(random.choice(query))
+    auto=discord.Embed(color=discord.Color.random())
+    if member:
+        if member.name==ctx.author.name:
+            auto.title = f"{ctx.author.name} is smirking 😏"
+        else:
+            auto.title = f"{ctx.author.name} smirks on {member.name} 😼"
+    else:
+        auto.title = f"{ctx.author.name} is smirking!"
+        pass
+    auto.set_image(url=random.choice(l))
+    await ctx.send(embed=auto)
 
 #-------------->BULLY COMMAND <--------------#
 @bot.command()
@@ -472,11 +580,58 @@ async def bully(ctx,member: discord.Member = None):
     auto.set_image(url=random.choice(l))
     await ctx.send(embed=auto)
 
+# -------------Random drawing ideas-------------#
+
+import json
+characters_file = "characters.json"
+@bot.command()
+async def draw(ctx):
+    global characters_file  
+    try:
+        with open(characters_file, 'r') as file:
+            data = json.load(file)
+        
+        dumb_conditions = ["in a different shows style","but as a robot (or human if already a robot)","as a JoJo character","fused with another character","90's style","as a fashion magazine cover","as a pirate","as a soul reaper","but another alignment (good/evil)","playing a sport","hanging out with a character from another show","as an album cover","eating a burrito","looking exceptionally bad ass","relaxing by the pool","as a fish","as any animal","as a superhero","as a magical girl","in a kimono or hakama or yukata whichever u want","playing a sport","with a social media acc","ready for Halloween","celebrating Xmas","meditating","cooking","on the computer",
+        ]
+        if 'results' in data and 'characters' in data['results']:
+            characters = data['results']['characters']
+            names = [character['name'] for character in characters]
+            random_name = random.choice(names)
+            random_condition = random.choice(dumb_conditions)
+            await ctx.send(f"Draw {random_name}, {random_condition}.")
+        else:
+            await ctx.send("Failed to fetch character data.")
+    except Exception as e:
+        await ctx.send(f"An error occurred: {e}")
+
+
 '''
 ░█▀▄▀█ ─█▀▀█ ▀▀█▀▀ ░█─░█ ░█▀▀▀█ 
 ░█░█░█ ░█▄▄█ ─░█── ░█▀▀█ ─▀▀▀▄▄ 
 ░█──░█ ░█─░█ ─░█── ░█─░█ ░█▄▄▄█'''
 import math
+import random
+from discord.ext import commands
+
+@bot.command()
+async def num(ctx, query):
+    try:
+        l = query.split(',')
+        if len(l) == 2:
+            num1 = int(l[0])
+            num2 = int(l[1])
+            if num1 <= num2:
+                random_num = random.randint(num1, num2)
+                await ctx.send(f"I think <:gurathink:1124874101434097756> {random_num}")
+            else:
+                await ctx.send(f"{ctx.author.name}, num1 must be less than or equal to num2.")
+        else:
+            await ctx.send("Please provide input in this format: akio num num1,num2")
+    except ValueError:
+        await ctx.send("Please provide input in this format: akio num num1,num2")
+
+
+
 @bot.command()
 async def root(ctx,number):
     number=float(number)
@@ -573,7 +728,7 @@ async def div(ctx, query):
 
 @bot.command()
 async def help(ctx):
-    auto = discord.Embed(title="Help Commands", description="Prefix is ```akio```\n1. For now, I can give you info about your favorite anime by using ```akio anime <anime_name>```\n2. Hehe, wanna hug/kiss/kill/slap etc. someone? Just mention them! Use ```akio <action> <mention>```\n ``` current actions available: hug kiss slap kill blush shrug pat bully clap applaud salute highfive think cheer wink laugh wave dances spin and pout```\n3. I can repeat your sentences as well as sing with you :D Use ```akio echo <sentence to repeat>```\n4. GAMES!!! ```akio guess, akio hangman```\n5. Maths! do some fun maths operations currently available ```add sub mul div root square log power```\n6. Fetch pfp of a user by ```akio pfp <mention>```\n6. kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru kururin kuru kururin ```akio kuru```" , color=discord.Color.random())
+    auto = discord.Embed(title="Help Commands", description="Prefix is ```akio```\n1. For now, I can give you info about your favorite anime by using ```akio anime <anime_name>```\n2. Hehe, wanna hug/kiss/kill/slap etc. someone? Just mention them! Use ```akio <action> <mention>```\n ``` current actions available: hug kiss slap kill blush smirk tickle roast kick shrug pat bully clap applaud salute highfive think cheer wink laugh wave dances spin and pout```\n3. I can repeat your sentences as well as sing with you :D Use ```akio echo <sentence to repeat>```\n4. GAMES!!! (under development) ```akio guess, akio rps```\n5. Maths! do some fun maths operations currently available ```add sub mul div root square log power```\n6. Fetch pfp of a user by ```akio pfp <mention>```\n6. kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru kururin kuru kururin ```akio kuru```\n7. Translate any language to english! ```akio tl <sentence to translate>```\n8. Get random drawing ideas, random numbers and more ```akio draw | akio num1,num2 | akio flip | akio ask```" , color=discord.Color.random())
     avatar_url = bot.user.avatar.url
     auto.set_thumbnail(url=avatar_url)
     await ctx.send(embed=auto)
@@ -585,6 +740,8 @@ async def help(ctx):
 ░█─▄▄ ░█▄▄█ ░█░█░█ ░█▀▀▀ ─▀▀▀▄▄ 
 ░█▄▄█ ░█─░█ ░█──░█ ░█▄▄▄ ░█▄▄▄█       """
 
+
+###########----------------------->GUESS A NUMBER<---------------------------------#############
 # Create an empty dictionary to store leaderboard data
 leaderboard = {}
 
@@ -592,12 +749,12 @@ leaderboard = {}
 async def guess(ctx):
     number = random.randint(1, 100)
     attempts = 0
-    
+
     await ctx.send("I'm thinking of a number between 1 and 100. Can you guess it?")
-    
+
     def check(message):
         return message.author == ctx.author and message.channel == ctx.channel and message.content.isdigit()
-    
+
     while True:
         try:
             guess = await bot.wait_for("message", check=check, timeout=30)
@@ -605,23 +762,22 @@ async def guess(ctx):
         except asyncio.TimeoutError:
             await ctx.send("Time's up! You took too long to guess.")
             return
-        
+
         attempts += 1
-        
+
         if guess < number:
             await ctx.send("Too low! Try guessing a higher number.")
         elif guess > number:
             await ctx.send("Too high! Try guessing a lower number.")
         else:
             await ctx.send(f"Congratulations! You guessed the number {number} correctly in {attempts} attempts!")
-            
+
             # Update the leaderboard
             user_id = str(ctx.author.id)
             if user_id not in leaderboard or attempts < leaderboard[user_id]:
                 leaderboard[user_id] = attempts
-            
-            return
 
+            return
 @bot.command()
 async def guess_lead(ctx):
     if leaderboard:
@@ -635,61 +791,121 @@ async def guess_lead(ctx):
     else:
         await ctx.send("No leaderboard data available.")
 
+#############------------------------------>ROCK, PAPER,SCISSORS<--------------------------##############
+@bot.command()
+async def rps(ctx):
+    choices = ['rock', 'paper', 'scissors']
+    abbreviations = {'r': 'rock', 'p': 'paper', 's': 'scissors'}
+    user = ctx.author
+
+    await ctx.send(f'{user.mention}, choose your move: rock (r), paper (p), or scissors (s).')
+
+    def check(message):
+        return message.author == user and message.content.lower() in choices or message.content.lower() in abbreviations
+
+    try:
+        user_choice = await bot.wait_for('message', check=check, timeout=30)
+    except asyncio.TimeoutError:
+        await ctx.send(f'{user.mention}, you took too long to make a choice. Game over.')
+        return
+
+    user_choice = user_choice.content.lower()
+    user_choice = abbreviations.get(user_choice, user_choice)
+
+    bot_choice = random.choice(choices)
+
+    await ctx.send(f'{user.mention} chose {user_choice}, and I chose {bot_choice}.')
+
+    if user_choice == bot_choice:
+        await ctx.send("It's a tie!")
+    elif (
+        (user_choice == 'rock' and bot_choice == 'scissors')
+        or (user_choice == 'paper' and bot_choice == 'rock')
+        or (user_choice == 'scissors' and bot_choice == 'paper')
+    ):
+        await ctx.send(f'{user.mention} wins!')
+    else:
+        await ctx.send(f'I win! {user.mention} loses.')
+
+# --------------- Translator------------------#
+from traceback import format_exc
 
 @bot.command()
-async def hangman(ctx):
-    url = "https://random-word-api.herokuapp.com/word"
-    parameters = {
-        "number": 1,
-    }
-    response = requests.get(url, params=parameters)
-    if response.status_code != 200:
-        await ctx.send("Failed to fetch a random word. Please try again later.")
-        return
-    
-    words = response.json()
-    word = random.choice(words)
-    word_letters = set(word)
-    guessed_letters = set()
-    attempts = 6
-    
-    await ctx.send("Let's play Hangman! I've chosen a word. Start guessing letters.")
-    
-    def check(message):
-        return message.author == ctx.author and message.channel == ctx.channel and len(message.content) == 1
-    
-    while attempts > 0:
-        display = "".join([f"{letter}" if letter in guessed_letters else "-" for letter in word])
-        await ctx.send(f"Word: {display}")
-        await ctx.send(f"Attempts left: {attempts}\nGuess a letter:")
-        
-        guess = await bot.wait_for("message", check=check)
-        guess = guess.content.lower()
-        
-        if guess in guessed_letters:
-            await ctx.send("You already guessed that letter. Try again!")
-            continue
-        
-        guessed_letters.add(guess)
-        
-        if display == word or len(list(guessed_letters))==len(word_letters):
-            await ctx.send(f"Congratulations! You guessed the word '{word}' correctly!")
-            return
-        elif guess not in word_letters:
-            attempts -= 1
-            await ctx.send(f"Wrong guess! The letter '{guess}' is not in the word. Attempts left: {attempts}")
-    
-    await ctx.send(f"Game over! You ran out of attempts. The word was '{word}'.")
+async def tl(ctx, *, message_to_tl):
+    translator = Translator()
+
+    try:
+        if message_to_tl.strip():  # Check if the message is not empty or contains only whitespace
+            translation = translator.translate(message_to_tl, dest="en")
+            embed = discord.Embed(
+                title="Translation",
+                description=f"Original: {message_to_tl}\nTranslation (English): {translation.text}",
+                color=discord.Color.random()
+            )
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send("Please provide a message to translate.")
+    except Exception as e:
+        await ctx.send(f"An error occurred: {str(e)}\n{format_exc()}")
+
+@bot.event
+async def on_message(message):
+    # Check if the message is a DM and it's not from the bot itself
+    if isinstance(message.channel, discord.DMChannel) and message.author != bot.user:
+        # Send a reply to the user who sent the DM
+        await message.author.send("Hello! I received your DM. I am sorry I don't have permissions to help you in the DM yet but you can always say **akio help** in the server :)")
+
+    # Process other commands as usual
+    await bot.process_commands(message)
 
 
+@bot.command()
+async def ask(ctx, *, question):
+    responses = [
+    "It is certain.",
+    "It is decidedly so.",
+    "Without a doubt.",
+    "Yes definitely.",
+    "You may rely on it.",
+    "As I see it, yes.",
+    "Most likely.",
+    "Outlook good.",
+    "Yes.",
+    "Signs point to yes.",
+    "Reply hazy, try again.",
+    "Ask again later.",
+    "Better not tell you now.",
+    "Cannot predict now.",
+    "Concentrate and ask again.",
+    "Don't count on it.",
+    "My reply is no.",
+    "My sources say no.",
+    "Outlook not so good.",
+    "Very doubtful."
+]
+    # Randomly select a response from the list
+    response = random.choice(responses)
 
+    # Create and send an embedded message with the response
+    embed = discord.Embed(
+        title="Magic 8-Ball",
+        description=f"**Question:** {question}\n**Answer:** {response}",
+        color=discord.Color.random()
+    )
+    await ctx.send(embed=embed)
 
+@bot.command()
+async def flip(ctx):
+    # Randomly choose "Heads" or "Tails"
+    result = random.choice(["Heads", "Tails"])
 
-
-
-
-
-
+    # Create and send an embedded message with the result
+    embed = discord.Embed(
+        title="Coin Flip",
+        description=f"The coin landed on: **{result}**",
+        color=discord.Color.random()
+    )
+    await ctx.send(embed=embed)
 
 
 
@@ -702,6 +918,7 @@ async def hangman(ctx):
 ░░░██║░░░╚█████╔╝██║░╚██╗███████╗██║░╚███║
 ░░░╚═╝░░░░╚════╝░╚═╝░░╚═╝╚══════╝╚═╝░░╚══╝'''
 
-##------------>TOKEN<-----------##
-bot.run('REPLACE THIS WITH YOUR BOT TOKEN')
 
+# keep_alive()
+##------------>TOKEN<-----------##
+bot.run('Add your bot token here')
