@@ -1,6 +1,6 @@
-# Akio - Your Friendly Discord Bot
+# Akio - A Cute Discord Bot
 
-Welcome to Akio, the ultimate Discord bot that brings fun, interactivity, and utility to your server! 🎉
+Meet Akio, a Discord bot that brings fun, interactivity, and utility to your server! 🎉
 
 ## Help Commands
 
@@ -37,12 +37,12 @@ Welcome to Akio, the ultimate Discord bot that brings fun, interactivity, and ut
    - Command: `akio kuru`
    - Example: `akio kuru`
 
-8. **Translate (Currently Not Working)**
+8. **Translate**
    - Command: `akio tl <sentence to translate>`
    - Example: `akio tl Bonjour`
 
 9. **Random Ideas & Numbers**
-   - Commands: `akio draw, akio num1,num2, akio flip, akio ask`
+   - Commands: `akio draw, akio flip, akio ask`
    - Example: `akio draw`
 
 10. **Love Percentage**
