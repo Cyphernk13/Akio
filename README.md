@@ -1,7 +1,5 @@
 # Akio - Your Friendly Discord Bot
 
-![Akio Banner](https://link-to-your-banner-image.com)
-
 Welcome to Akio, the ultimate Discord bot that brings fun, interactivity, and utility to your server! 🎉
 
 ## Help Commands
