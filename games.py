@@ -183,11 +183,3 @@ def setup(bot):
                 embed.add_field(name=f"{user1_name} ❤️ {user2_name}", value=f"Love Percentage: {love_percentage}%")
         await ctx.send(embed=embed)
 
-    # bot.add_command(guess)
-    # bot.add_command(guess_lead)
-    # bot.add_command(rps)
-    # bot.add_command(ask)
-    # bot.add_command(flip)
-    # bot.add_command(draw)
-    # bot.add_command(love)
-

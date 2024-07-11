@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from googletrans import Translator
 import random
 from gif_utils import get_top_8_gifs
 
@@ -7,6 +8,26 @@ def setup(bot):
     @bot.hybrid_command()
     async def hello(ctx):
         await ctx.send(f'Hello, {ctx.author.name}!')
+    
+    @bot.command()
+    async def tl(ctx, *, sentence: str):
+        translator = Translator()
+        try:
+            translation = translator.translate(sentence, dest='en')
+            embed = discord.Embed(
+                title="Translation",
+                description=f"**Original:** {sentence}\n**English:** {translation.text}",
+                color=discord.Color.blue()
+            )
+            embed.set_footer(text=f"Requested by {ctx.author}", icon_url=ctx.author.avatar.url)
+            await ctx.send(embed=embed)
+        except Exception as e:
+            error_embed = discord.Embed(
+                title="Error",
+                description=f"An error occurred: {str(e)}",
+                color=discord.Color.red()
+            )
+            await ctx.send(embed=error_embed)
 
     @bot.command()
     async def say(ctx, *, message):
@@ -39,7 +60,8 @@ def setup(bot):
             auto.title = f"Aww {ctx.author.name} I'll give you a hug..."
         auto.set_image(url=random.choice(l))
         await ctx.send(embed=auto)
-        #-------------->PAT COMMAND 🤗<--------------#
+
+    #-------------->PAT COMMAND 🤗<--------------#
     @bot.command()
     async def pat(ctx,member: discord.Member = None):
         # Example usage
@@ -479,39 +501,7 @@ def setup(bot):
         await ctx.send(embed=auto)
     @bot.command()
     async def help(ctx):
-        auto = discord.Embed(title="Help Commands", description="Prefix is ```akio```\n1. ***NEW*** Ask me anything or generate an ai image using ```akio query <your question here>```\n2. Hehe, wanna hug/kiss/kill/slap etc. someone? Just mention them! Use ```akio <action> <mention>```\n ``` current actions available: hug kiss slap kill blush smirk tickle roast kick shrug pat bully clap applaud salute highfive think cheer wink laugh wave dances spin and pout```\n3. I can repeat your sentences as well as sing with you :D Use ```akio echo <sentence to repeat>```\n4. GAMES!!! (under development) ```akio guess, akio rps```\n5. Maths! do some fun maths operations currently available ```add sub mul div root square log power```\n6. Fetch pfp of a user by ```akio pfp <mention>```\n6. kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru kururin kuru kururin ```akio kuru```\n7. Translate any language to english! (NOT WORKING CURRENTLY) ```akio tl <sentence to translate>```\n8. Get random drawing ideas, random numbers and more ```akio draw | akio num1,num2 | akio flip | akio ask```\n9. Calculate love percentage!!! ```akio love user1 user2```" , color=discord.Color.random())
+        auto = discord.Embed(title="Help Commands", description="Prefix is ```akio```\n1. ***NEW*** Ask me anything or generate an ai image using ```akio query <your question here>```\n2. Hehe, wanna hug/kiss/kill/slap etc. someone? Just mention them! Use ```akio <action> <mention>```\n ``` current actions available: hug kiss slap kill blush smirk tickle roast kick shrug pat bully clap applaud salute highfive think cheer wink laugh wave dances spin and pout```\n3. I can repeat your sentences as well as sing with you :D Use ```akio echo <sentence to repeat>```\n4. GAMES!!! (under development) ```akio guess, akio rps```\n5. Maths! do some fun maths operations currently available ```add sub mul div root square log power```\n6. Fetch pfp of a user by ```akio pfp <mention>```\n6. kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru kururin kuru kururin ```akio kuru```\n7. Translate any language! ```akio tl <sentence to translate>```\n8. Get random drawing ideas, random numbers and more ```akio draw | akio num1,num2 | akio flip | akio ask```\n9. Calculate love percentage!!! ```akio love user1 user2```" , color=discord.Color.random())
         avatar_url = bot.user.avatar.url
         auto.set_thumbnail(url=avatar_url)
         await ctx.send(embed=auto)
-
-    # bot.add_command(hello)
-    # bot.add_command(say)
-    # bot.add_command(echo)
-    # bot.add_command(pfp)
-    # bot.add_command(hug)
-    # bot.add_command(pat)
-    # bot.add_command(slap)
-    # bot.add_command(kiss)
-    # bot.add_command(kill)
-    # bot.add_command(kick)
-    # bot.add_command(blush)
-    # bot.add_command(kuru)
-    # bot.add_command(shrug)
-    # bot.add_command(pout)
-    # bot.add_command(cry)
-    # bot.add_command(spin)
-    # bot.add_command(tickle)
-    # bot.add_command(roast)
-    # bot.add_command(dance)
-    # bot.add_command(wave)
-    # bot.add_command(laugh)
-    # bot.add_command(wink)
-    # bot.add_command(cheer)
-    # bot.add_command(think)
-    # bot.add_command(highfive)
-    # bot.add_command(salute)
-    # bot.add_command(applaud)
-    # bot.add_command(clap)
-    # bot.add_command(smirk)
-    # bot.add_command(bully)
-    # bot.add_command(help)

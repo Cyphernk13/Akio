@@ -101,14 +101,3 @@ def setup(bot):
                 await ctx.send("Please provide input in this format: akio log num1,num2")
         except:
             await ctx.send("Invalid input. Please provide numbers in the correct format.")
-    
-    # bot.add_command(num)
-    # bot.add_command(root)
-    # bot.add_command(square)
-    # bot.add_command(power)
-    # bot.add_command(log)
-    # bot.add_command(add)
-    # bot.add_command(sub)
-    # bot.add_command(mul)
-    # bot.add_command(div)
-

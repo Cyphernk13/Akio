@@ -7,12 +7,11 @@ Fb_Email = os.getenv('FB_Email')
 Fb_Password = os.getenv('FB_Password')
 ai_instance = MetaAI(fb_email=Fb_Email, fb_password=Fb_Password)
 
-# Prebuilt message to ensure AI acts as 'Akio'
+
 prebuilt_message = "You have to act like a cute discord bot named Akio. Only when asked, say your name is Akio, don't state your name out of the blue. Now the user will give a query: "
 
 async def ai(user_input: str) -> str:
     try:
-        # Combine prebuilt message with user input
         combined_input = f"{prebuilt_message} {user_input}"
         
         response = ai_instance.prompt(message=combined_input)
