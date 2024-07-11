@@ -53,7 +53,7 @@ Meet Akio, a Discord bot that brings fun, interactivity, and utility to your ser
 
 1. Clone the repository:
    ```sh
-   git clone https://github.com/yourusername/akio.git
+   git clone https://github.com/Cyphernk13/Akio.git
    cd akio
 2. Install dependencies:
    ```sh
