@@ -55,3 +55,9 @@ Welcome to Akio, the ultimate Discord bot that brings fun, interactivity, and ut
    ```sh
    git clone https://github.com/yourusername/akio.git
    cd akio
+2. Install dependencies:
+   ```sh
+   pip install -r requirements.txt
+3. Run the bot:
+   ```sh
+   python main.py
