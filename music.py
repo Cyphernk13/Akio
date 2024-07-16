@@ -1,33 +1,31 @@
 import discord
-from discord.ext import commands
+from discord.ext import commands,tasks
 import yt_dlp as youtube_dl
 import random
 import asyncio
-import logging
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 
 def setup(bot):
     # Suppress noise about console usage from errors
     youtube_dl.utils.bug_reports_message = lambda: ''
 
     ytdl_format_options = {
-        'format': 'bestaudio/best',
-        'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
-        'restrictfilenames': True,
-        'noplaylist': True,
-        'nocheckcertificate': True,
-        'ignoreerrors': False,
-        'logtostderr': False,
-        'quiet': True,
-        'no_warnings': True,
-        'default_search': 'ytsearch1',  # Search for the first video on YouTube
-        'source_address': '0.0.0.0'  # Bind to IPv4 since IPv6 addresses cause issues sometimes
-    }
+    'format': 'bestaudio/best',
+    'outtmpl': '-',  # Output to stdout
+    'restrictfilenames': True,
+    'noplaylist': True,
+    'nocheckcertificate': True,
+    'ignoreerrors': False,
+    'logtostderr': False,
+    'quiet': True,
+    'no_warnings': True,
+    'default_search': 'ytsearch1',
+    'source_address': '0.0.0.0',
+    'extract_flat': 'in_playlist',  # Don't extract videos in playlists
+}
 
     ffmpeg_options = {
-        'options': '-vn',
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -nostdin',
+        'options': '-vn -bufsize 64k -probesize 10M',
         'executable': 'C:\\ffmpeg-7.0.1-essentials_build\\bin\\ffmpeg.exe'  # Change this to your ffmpeg path
     }
 
@@ -36,86 +34,86 @@ def setup(bot):
     class YTDLSource(discord.PCMVolumeTransformer):
         def __init__(self, source, *, data, volume=0.5):
             super().__init__(source, volume)
-
             self.data = data
             self.title = data.get('title')
-            self.url = data.get('url')
-            self.channel = data.get('channel')
+            self.url = data.get('webpage_url')
+            self.channel = data.get('channel', 'Unknown')
+            self.duration = data.get('duration')
 
         @classmethod
-        async def from_url(cls, url, *, loop=None, stream=False):
+        async def from_url(cls, url, *, loop=None, stream=True, retry_count=3):
             loop = loop or asyncio.get_event_loop()
-            data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+            for attempt in range(retry_count):
+                try:
+                    data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
+                    if 'entries' in data:
+                        data = data['entries'][0]
+                    filename = data['url'] if stream else ytdl.prepare_filename(data)
+                    return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
+                except Exception as e:
+                    if attempt < retry_count - 1:
+                        await asyncio.sleep(1)
+                    else:
+                        raise e
 
-            if 'entries' in data:
-                # Takes the first item from a playlist or search results
-                data = data['entries'][0]
-
-            filename = data['url'] if stream else ytdl.prepare_filename(data)
-            return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
+        @classmethod
+        async def regather_stream(cls, data, *, loop, retry_count=3):
+            loop = loop or asyncio.get_event_loop()
+            for attempt in range(retry_count):
+                try:
+                    refreshed_data = await loop.run_in_executor(None, lambda: ytdl.extract_info(data['webpage_url'], download=False))
+                    return cls(discord.FFmpegPCMAudio(refreshed_data['url'], **ffmpeg_options), data=refreshed_data)
+                except Exception as e:
+                    if attempt < retry_count - 1:
+                        await asyncio.sleep(1)
+                    else:
+                        raise e
 
 
     songs = []
     current_song = None
-
-    async def play_next(ctx):
-        global current_song
-        try:
-            if songs:
-                query = songs.pop(0)
-                player = await YTDLSource.from_url(query, loop=ctx.bot.loop, stream=True)
-                ctx.voice_client.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), ctx.bot.loop))
-                current_song = player
-                embed = create_music_panel(player.title, ctx.author, player.data['duration'], player.channel)
-                view = MusicControlView(ctx)
-                await ctx.send(embed=embed, view=view)
-            else:
-                current_song = None
-                await ctx.send('Queue is empty.')
-        except Exception as e:
-            logging.error(f"Error in play_next function: {str(e)}")
-            current_song = None
-            await ctx.send(f"An error occurred while playing the next song: {str(e)}")
-            await play_next(ctx)  # Retry playing the next song
-
-    async def retry_play(ctx, query):
-        try:
-            player = await YTDLSource.from_url(query, loop=ctx.bot.loop, stream=True)
-            ctx.voice_client.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(after_song_end(ctx, e), ctx.bot.loop))
-            current_song = player
-            embed = create_music_panel(player.title, ctx.author, player.data['duration'], player.channel)
-            view = MusicControlView(ctx)
-            await ctx.send(embed=embed, view=view)
-        except Exception as e:
-            logging.error(f"Error in retry_play function: {str(e)}")
-            await ctx.send(f"An error occurred while trying to play the song: {str(e)}")
-            await asyncio.sleep(5)  # Wait before retrying
-            await retry_play(ctx, query)  # Retry playing the song
-
-    async def after_song_end(ctx, error):
-        if error:
-            logging.error(f"Playback error: {error}")
-        await play_next(ctx)
 
     @bot.command()
     async def play(ctx, *, query):
         global current_song
         try:
             if not ctx.voice_client.is_playing():
-                player = await YTDLSource.from_url(query, loop=ctx.bot.loop, stream=True)
-                ctx.voice_client.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(after_song_end(ctx, e), ctx.bot.loop))
+                player = await YTDLSource.from_url(query, loop=ctx.bot.loop)
+                ctx.voice_client.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), ctx.bot.loop))
                 current_song = player
-                embed = create_music_panel(player.title, ctx.author, player.data['duration'], player.channel)
+                embed = create_music_panel(player.title, ctx.author, player.duration, player.channel)
                 view = MusicControlView(ctx)
                 await ctx.send(embed=embed, view=view)
+                
+                if not check_voice_state.is_running():
+                    check_voice_state.start(ctx)
             else:
                 songs.append(query)
-                player = await YTDLSource.from_url(query, loop=ctx.bot.loop, stream=True)
+                player = await YTDLSource.from_url(query, loop=ctx.bot.loop, stream=False)
                 await ctx.send(f'Added to queue: {player.title}')
         except Exception as e:
-            logging.error(f"Error in play command: {str(e)}")
-            await ctx.send(f"An error occurred while trying to play the song: {str(e)}")
-            await retry_play(ctx, query)  # Retry playing the song on error
+            await ctx.send(f"An error occurred while processing your request: {str(e)}")
+
+    async def play_next(ctx):
+        global current_song
+        if songs:
+            query = songs.pop(0)
+            try:
+                player = await YTDLSource.from_url(query, loop=ctx.bot.loop)
+                ctx.voice_client.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), ctx.bot.loop))
+                current_song = player
+                embed = create_music_panel(player.title, ctx.author, player.duration, player.channel)
+                view = MusicControlView(ctx)
+                await ctx.send(embed=embed, view=view)
+            except Exception as e:
+                await ctx.send(f"An error occurred while playing {query}: {str(e)}")
+                await asyncio.sleep(1)  # Wait a bit before trying the next song
+                await play_next(ctx)
+        else:
+            current_song = None
+            await ctx.send('Queue is empty.')
+            if check_voice_state.is_running():
+                check_voice_state.cancel()
 
     @bot.command()
     async def join(ctx):
@@ -155,6 +153,13 @@ def setup(bot):
         if ctx.voice_client.is_playing():
             ctx.voice_client.stop()
         songs.clear()
+        global current_song
+        current_song = None
+        
+        # Stop the voice state check
+        if check_voice_state.is_running():
+            check_voice_state.cancel()
+        
         await ctx.send("Music stopped and queue cleared.")
 
     class MusicControlView(discord.ui.View):
@@ -220,7 +225,7 @@ def setup(bot):
         embed.add_field(name="🎵", value=title, inline=False)
         embed.add_field(name="Requested By", value=requester.mention, inline=True)
         embed.add_field(name="Music Duration", value=f"{duration//60}m {duration%60}s", inline=True)
-        embed.add_field(name="Music Author", value=channel, inline=True)  # You might want to fetch this information
+        embed.add_field(name="Music Author", value=channel, inline=True)  # Change this line
         return embed
 
     @bot.command()
@@ -238,7 +243,7 @@ def setup(bot):
             # Add queued songs
             for i, song in enumerate(songs, start=1):
                 try:
-                    player = await YTDLSource.from_url(song, loop=ctx.bot.loop, stream=True)
+                    player = await YTDLSource.from_url(song, loop=ctx.bot.loop, stream=False)
                     embed.add_field(name=f"Song {i}:", value=player.title, inline=False)
                 except Exception as e:
                     embed.add_field(name=f"Song {i}:", value=f"Error fetching song info: {str(e)}", inline=False)
@@ -247,12 +252,21 @@ def setup(bot):
         else:
             await ctx.send("No music is currently playing and the queue is empty.")
 
+
     @play.before_invoke
     @join.before_invoke
-    async def ensure_voice(ctx):
-        if ctx.voice_client is None:
-            if ctx.author.voice:
-                await ctx.author.voice.channel.connect()
-            else:
-                await ctx.send("You are not connected to a voice channel.")
-                raise commands.CommandError("Author not connected to a voice channel.")
+    async def ensure_voice_connected(ctx):
+        if ctx.voice_client is None or not ctx.voice_client.is_connected():
+            channel = ctx.author.voice.channel
+            await channel.connect()
+
+    @tasks.loop(seconds=30)
+    async def check_voice_state(ctx):
+        if ctx.voice_client and not ctx.voice_client.is_playing() and current_song:
+            try:
+                player = await YTDLSource.regather_stream(current_song.data, loop=ctx.bot.loop)
+                ctx.voice_client.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), ctx.bot.loop))
+            except Exception as e:
+                await ctx.send(f"An error occurred while trying to resume playback: {str(e)}")
+                await asyncio.sleep(1)  # Wait a bit before trying to play the next song
+                await play_next(ctx)
