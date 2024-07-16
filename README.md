@@ -49,6 +49,10 @@ Meet Akio, a Discord bot that brings fun, interactivity, and utility to your ser
     - Command: `akio love user1 user2`
     - Example: `akio love @user1 @user2`
 
+11. **MUSIC (Beta)**
+    - Command: `akio play <url or name>`
+    - Example: `akio play Despacito`
+
 ## Installation
 
 1. Clone the repository:
