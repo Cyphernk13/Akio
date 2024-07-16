@@ -5,11 +5,15 @@ import os
 import commands
 import games
 import maths
+import music
+import bot_help
 
 load_dotenv()
 commands.setup(bot)
 games.setup(bot)
 maths.setup(bot)
+music.setup(bot)
+bot_help.setup(bot)
 
 @bot.event
 async def on_message(message):
