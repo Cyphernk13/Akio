@@ -71,4 +71,4 @@ Meet Akio, a Discord bot that brings fun, interactivity, and utility to your ser
    FB_Password = 'Enter your facebook password here'
    GIF= 'Enter your Tenor GIF API Key here'
    TOKEN = 'Enter your Bot Token here'
-   <!-- Note that fb email and password are required for accessing Meta AI image generation -->
+   Note: Fb Email and Password are required for accessing Meta AI image generation
