@@ -27,7 +27,8 @@ def setup(bot):
     }
 
     ffmpeg_options = {
-        'options': '-vn',
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn -filter:a "volume=0.5"',
         'executable': 'C:\\ffmpeg-7.0.1-essentials_build\\bin\\ffmpeg.exe'  # Change this to your ffmpeg path
     }
 
@@ -157,6 +158,21 @@ def setup(bot):
         songs.clear()
         await ctx.send("Music stopped and queue cleared.")
 
+    @bot.command()
+    async def skip(ctx):
+        if ctx.voice_client.is_playing():
+            ctx.voice_client.stop()
+            await ctx.send("Skipped the current song.")
+        else:
+            await ctx.send("No music is playing.")
+
+    @bot.command()
+    async def volume(ctx, volume: int):
+        if ctx.voice_client is None:
+            return await ctx.send("Not connected to a voice channel.")
+        ctx.voice_client.source.volume = volume / 100
+        await ctx.send(f"Changed volume to {volume}%")
+
     class MusicControlView(discord.ui.View):
         def __init__(self, ctx):
             super().__init__(timeout=None)
@@ -171,23 +187,19 @@ def setup(bot):
             else:
                 await interaction.response.send_message("No previous song in queue.", ephemeral=True)
 
-        @discord.ui.button(label='', style=discord.ButtonStyle.primary, emoji='⏸️')
-        async def pause_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+        @discord.ui.button(label='', style=discord.ButtonStyle.primary, emoji='⏯️')
+        async def pause_resume_button(self, button: discord.ui.Button, interaction: discord.Interaction):
             if self.ctx.voice_client.is_playing():
                 self.ctx.voice_client.pause()
                 await interaction.response.send_message("Music paused.", ephemeral=True)
-            else:
-                await interaction.response.send_message("No music is playing.", ephemeral=True)
-
-        @discord.ui.button(label='', style=discord.ButtonStyle.primary, emoji='▶️')
-        async def resume_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-            if self.ctx.voice_client.is_paused():
+            elif self.ctx.voice_client.is_paused():
                 self.ctx.voice_client.resume()
                 await interaction.response.send_message("Music resumed.", ephemeral=True)
             else:
-                await interaction.response.send_message("The music is not paused.", ephemeral=True)
+                await interaction.response.send_message("No music is playing.", ephemeral=True)
 
-        @discord.ui.button(label='', style=discord.ButtonStyle.danger, emoji='⏭️')
+
+        @discord.ui.button(label='', style=discord.ButtonStyle.primary, emoji='⏭️')
         async def skip_button(self, button: discord.ui.Button, interaction: discord.Interaction):
             if self.ctx.voice_client.is_playing():
                 self.ctx.voice_client.stop()
@@ -196,7 +208,7 @@ def setup(bot):
             else:
                 await interaction.response.send_message("No music is playing.", ephemeral=True)
 
-        @discord.ui.button(label='', style=discord.ButtonStyle.danger, emoji='⏹️')
+        @discord.ui.button(label='', style=discord.ButtonStyle.primary, emoji='⏹️')
         async def stop_button(self, button: discord.ui.Button, interaction: discord.Interaction):
             global current_song
             self.ctx.voice_client.stop()
@@ -204,13 +216,29 @@ def setup(bot):
             current_song = None
             await interaction.response.send_message("Music stopped and queue cleared.", ephemeral=True)
 
-        @discord.ui.button(label='', style=discord.ButtonStyle.secondary, emoji='🔀')
+        @discord.ui.button(label='', style=discord.ButtonStyle.primary, emoji='🔀')
         async def shuffle_button(self, button: discord.ui.Button, interaction: discord.Interaction):
             if len(songs) > 1:
                 random.shuffle(songs)
                 await interaction.response.send_message("Queue shuffled.", ephemeral=True)
             else:
                 await interaction.response.send_message("Not enough songs in queue to shuffle.", ephemeral=True)
+
+        @discord.ui.button(label='', style=discord.ButtonStyle.secondary, emoji='🔊')
+        async def volume_up_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+            if self.ctx.voice_client.source.volume < 1.0:
+                self.ctx.voice_client.source.volume += 0.1
+                await interaction.response.send_message(f"Volume increased to {int(self.ctx.voice_client.source.volume * 100)}%", ephemeral=True)
+            else:
+                await interaction.response.send_message("Volume is already at maximum.", ephemeral=True)
+
+        @discord.ui.button(label='', style=discord.ButtonStyle.secondary, emoji='🔉')
+        async def volume_down_button(self, button: discord.ui.Button, interaction: discord.Interaction):
+            if self.ctx.voice_client.source.volume > 0.0:
+                self.ctx.voice_client.source.volume -= 0.1
+                await interaction.response.send_message(f"Volume decreased to {int(self.ctx.voice_client.source.volume * 100)}%", ephemeral=True)
+            else:
+                await interaction.response.send_message("Volume is already at minimum.", ephemeral=True)
 
         async def interaction_check(self, interaction: discord.Interaction) -> bool:
             return interaction.user == self.ctx.author
@@ -219,8 +247,8 @@ def setup(bot):
         embed = discord.Embed(title="MUSIC PANEL", color=discord.Color.blue())
         embed.add_field(name="🎵", value=title, inline=False)
         embed.add_field(name="Requested By", value=requester.mention, inline=True)
-        embed.add_field(name="Music Duration", value=f"{duration//60}m {duration%60}s", inline=True)
-        embed.add_field(name="Music Author", value=channel, inline=True)  # You might want to fetch this information
+        embed.add_field(name="Duration", value=f"{duration//60}m {duration%60}s", inline=True)
+        embed.add_field(name="Author", value=channel, inline=True)  # You might want to fetch this information
         return embed
 
     @bot.command()
@@ -242,8 +270,9 @@ def setup(bot):
                     embed.add_field(name=f"Song {i}:", value=player.title, inline=False)
                 except Exception as e:
                     embed.add_field(name=f"Song {i}:", value=f"Error fetching song info: {str(e)}", inline=False)
-            
-            await ctx.send(embed=embed)
+
+            view = MusicControlView(ctx)
+            await ctx.send(embed=embed, view=view)
         else:
             await ctx.send("No music is currently playing and the queue is empty.")
 
