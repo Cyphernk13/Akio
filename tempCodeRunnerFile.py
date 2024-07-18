@@ -1,33 +1,27 @@
-from meta_ai_api import MetaAI
 from dotenv import load_dotenv
+from setup import bot
+import discord
 import os
+import commands
+import games
+import maths
+import music
+import bot_help
 
 load_dotenv()
-Fb_Email = os.getenv('FB_Email')
-Fb_Password = os.getenv('FB_Password')
-ai_instance = MetaAI(fb_email=Fb_Email, fb_password=Fb_Password)
+commands.setup(bot)
+games.setup(bot)
+maths.setup(bot)
+music.setup(bot)
+bot_help.setup(bot)
 
-# Prebuilt message to ensure AI acts as 'Akio'
-prebuilt_message = "You have to act like a cute discord bot named Akio. Only when asked, say your name is Akio, don't state your name out of the blue. Now the user will give a query: "
+@bot.event
+async def on_message(message):
+    if isinstance(message.channel, discord.DMChannel) and message.author != bot.user:
+        await message.author.send("Hello! I received your DM.\nI am sorry I don't have permissions to help you in the DM yet but you can always say **akio help** in the server :)")
+    await bot.process_commands(message)
 
-async def ai(user_input: str) -> str:
-    try:
-        # Combine prebuilt message with user input
-        combined_input = f"{prebuilt_message} {user_input}"
-        
-        response = ai_instance.prompt(message=combined_input)
-        # print(f"MetaAI response: {response}")  # Debugging line
+##------------>TOKEN<-----------##
+TOKEN = os.getenv('TOKEN')
+bot.run(TOKEN)
 
-        if isinstance(response, dict):
-            if 'message' in response and response['message'].strip():
-                return response['message']
-            elif 'media' in response and response['media']:  
-                return response['media'][0]['url']
-        elif isinstance(response, str):
-            return response 
-
-        return "Sorry, I couldn't generate a response."
-    
-    except Exception as e:
-        # print(f"Exception occurred: {e}")  # Debugging line
-        return f"An error occurred: {e}"
