@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 from googletrans import Translator
 import random
-from gif_utils import get_top_8_gifs
+from modules.gif_utils import get_top_8_gifs
 
 def setup(bot):
     @bot.hybrid_command()

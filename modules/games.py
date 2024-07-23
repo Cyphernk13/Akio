@@ -3,7 +3,7 @@ from discord.ext import commands
 import random
 import asyncio
 import json
-from meta_ai import ai
+from ai.meta_ai import ai
 
 characters_file = "characters.json"
 leaderboard = {}
