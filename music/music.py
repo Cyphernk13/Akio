@@ -42,6 +42,7 @@ def setup(bot):
             self.title = data.get('title')
             self.url = data.get('url')
             self.channel = data.get('channel')
+            self.channel_avatar = data.get('thumbnail')
 
         @classmethod
         async def from_url(cls, url, *, loop=None, stream=False):
@@ -67,7 +68,7 @@ def setup(bot):
                 player = await YTDLSource.from_url(query, loop=ctx.bot.loop, stream=True)
                 ctx.voice_client.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), ctx.bot.loop))
                 current_song = player
-                embed = create_music_panel(player.title, ctx.author, player.data['duration'], player.channel)
+                embed = create_music_panel(player.title, ctx.author, player.data['duration'],player.channel, player.channel_avatar)
                 view = MusicControlView(ctx)
                 await ctx.send(embed=embed, view=view)
             else:
@@ -84,7 +85,7 @@ def setup(bot):
             player = await YTDLSource.from_url(query, loop=ctx.bot.loop, stream=True)
             ctx.voice_client.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(after_song_end(ctx, e), ctx.bot.loop))
             current_song = player
-            embed = create_music_panel(player.title, ctx.author, player.data['duration'], player.channel)
+            embed = create_music_panel(player.title, ctx.author, player.data['duration'],player.channel, player.channel_avatar)
             view = MusicControlView(ctx)
             await ctx.send(embed=embed, view=view)
         except Exception as e:
@@ -106,7 +107,7 @@ def setup(bot):
                 player = await YTDLSource.from_url(query, loop=ctx.bot.loop, stream=True)
                 ctx.voice_client.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(after_song_end(ctx, e), ctx.bot.loop))
                 current_song = player
-                embed = create_music_panel(player.title, ctx.author, player.data['duration'], player.channel)
+                embed = create_music_panel(player.title, ctx.author, player.data['duration'], player.channel, player.channel_avatar)
                 view = MusicControlView(ctx)
                 await ctx.send(embed=embed, view=view)
             else:
@@ -243,12 +244,13 @@ def setup(bot):
         async def interaction_check(self, interaction: discord.Interaction) -> bool:
             return interaction.user == self.ctx.author
 
-    def create_music_panel(title, requester, duration, channel):
+    def create_music_panel(title, requester, duration,channel, channel_avatar):
         embed = discord.Embed(title="MUSIC PANEL", color=discord.Color.blue())
         embed.add_field(name="🎵", value=title, inline=False)
         embed.add_field(name="Requested By", value=requester.mention, inline=True)
         embed.add_field(name="Duration", value=f"{duration//60}m {duration%60}s", inline=True)
-        embed.add_field(name="Author", value=channel, inline=True)  # You might want to fetch this information
+        embed.add_field(name="Author", value=channel, inline=True) 
+        embed.set_thumbnail(url=channel_avatar)
         return embed
 
     @bot.command()
@@ -275,7 +277,6 @@ def setup(bot):
             await ctx.send(embed=embed, view=view)
         else:
             await ctx.send("No music is currently playing and the queue is empty.")
-
     @play.before_invoke
     @join.before_invoke
     async def ensure_voice(ctx):
