@@ -1,12 +1,9 @@
 from dotenv import load_dotenv
-from setup import bot
+from scripts.setup import bot
 import discord
 import os
-import commands
-import games
-import maths
-import music
-import bot_help
+from modules import commands, games, maths, bot_help
+from music import music
 
 load_dotenv()
 commands.setup(bot)
@@ -23,5 +20,5 @@ async def on_message(message):
 
 ##------------>TOKEN<-----------##
 TOKEN = os.getenv('TOKEN')
+print(f"TOKEN: {TOKEN}")  # Add this line to check the value
 bot.run(TOKEN)
-

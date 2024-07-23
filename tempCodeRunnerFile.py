@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from setup import bot
+from scripts.setup import bot
 import discord
 import os
 import commands
