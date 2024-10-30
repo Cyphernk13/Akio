@@ -16,6 +16,23 @@ def setup(bot):
         response = await ai(question)
         await ctx.send(response)
 
+    # Defining on_message within setup to handle replies and mentions
+    @bot.listen("on_message")
+    async def handle_mentions_and_replies(message):
+        # Avoid the bot responding to its own messages
+        if message.author == bot.user:
+            return
+
+        # Check if the bot is mentioned in the message or if it's a reply to one of the bot's previous messages
+        if bot.user in message.mentions or (message.reference and message.reference.resolved.author == bot.user):
+            # Strip the mention from the message content
+            question = message.content.replace(f"<@{bot.user.id}>", "").strip() if bot.user in message.mentions else message.content
+            
+            # Call the ai function to get a response
+            response = await ai(question)
+            await message.channel.send(response)
+            return
+        
     @bot.command()
     async def guess(ctx):
         number = random.randint(1, 100)
