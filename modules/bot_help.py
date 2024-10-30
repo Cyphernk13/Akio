@@ -6,7 +6,7 @@ def setup(bot):
             title="Help Commands❗",
             description=(
                 "Prefix is `akio`\n"
-                "1. ***NEW*** Ask me anything or generate an ai image using ```akio query <your question here>```\n"
+                "1. Ask me anything 😎 ```akio query <your question here>```\n"
                 "2. Hehe, wanna hug/kiss/kill/slap etc. someone? Just mention them! Use ```akio <action> <mention>```\n ```Current actions available: hug kiss slap kill blush smirk tickle roast kick shrug pat bully clap applaud salute highfive think cheer wink laugh wave dances spin and pout```\n"
                 "3. I can repeat your sentences as well as sing with you :D Use ```akio echo <sentence to repeat>```\n"
                 "4. GAMES!!! (under development) ```akio guess, akio rps```\n"

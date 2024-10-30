@@ -14,7 +14,6 @@ def setup(bot):
     @bot.command()
     async def query(ctx, *, question: str):
         response = await ai(question)
-        # print(f"MetaAI response: {response}")  # Debugging line
         await ctx.send(response)
 
     @bot.command()
