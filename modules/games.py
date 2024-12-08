@@ -6,7 +6,7 @@ import json
 from ai.meta_ai import ai
 
 characters_file = "modules\characters.json"
-
+leaderboard = {}
 def setup(bot):
 
     @bot.command()
