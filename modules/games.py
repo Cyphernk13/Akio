@@ -6,8 +6,6 @@ import json
 from ai.meta_ai import ai
 
 characters_file = "modules\characters.json"
-leaderboard = {}
-
 
 def setup(bot):
 
@@ -64,19 +62,6 @@ def setup(bot):
                     leaderboard[user_id] = attempts
 
                 return
-
-    @bot.command()
-    async def guess_lead(ctx):
-        if leaderboard:
-            sorted_leaderboard = sorted(leaderboard.items(), key=lambda x: x[1])
-            leaderboard_embed = discord.Embed(title="Leaderboard", color=discord.Color.blue())
-            for index, (user_id, attempts) in enumerate(sorted_leaderboard, start=1):
-                member = ctx.guild.get_member(int(user_id))
-                if member:
-                    leaderboard_embed.add_field(name=f"#{index} {member.display_name}", value=f"Attempts: {attempts}", inline=False)
-            await ctx.send(embed=leaderboard_embed)
-        else:
-            await ctx.send("No leaderboard data available.")
 
     @bot.command()
     async def rps(ctx):
