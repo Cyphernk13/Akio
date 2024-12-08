@@ -5,7 +5,7 @@ import asyncio
 import json
 from ai.meta_ai import ai
 
-characters_file = "characters.json"
+characters_file = "modules\characters.json"
 leaderboard = {}
 
 
@@ -16,23 +16,22 @@ def setup(bot):
         response = await ai(question)
         await ctx.send(response)
 
-    # Defining on_message within setup to handle replies and mentions
+    # Define a listener for when the bot is mentioned in a message
     @bot.listen("on_message")
-    async def handle_mentions_and_replies(message):
+    async def handle_mentions(message):
         # Avoid the bot responding to its own messages
         if message.author == bot.user:
             return
 
-        # Check if the bot is mentioned in the message or if it's a reply to one of the bot's previous messages
-        if bot.user in message.mentions or (message.reference and message.reference.resolved.author == bot.user):
+        # Check if the bot is mentioned in the message
+        if bot.user in message.mentions:
             # Strip the mention from the message content
-            question = message.content.replace(f"<@{bot.user.id}>", "").strip() if bot.user in message.mentions else message.content
+            question = message.content.replace(f"<@{bot.user.id}>", "").strip()
             
             # Call the ai function to get a response
             response = await ai(question)
             await message.channel.send(response)
-            return
-        
+
     @bot.command()
     async def guess(ctx):
         number = random.randint(1, 100)
