@@ -5,11 +5,11 @@ import random
 from modules.gif_utils import get_top_8_gifs
 
 def setup(bot):
-    @bot.hybrid_command()
+    @bot.hybrid_command(description="Say hello to the bot!")
     async def hello(ctx):
         await ctx.send(f'Hello, {ctx.author.name}!')
     
-    @bot.command()
+    @bot.hybrid_command(description="Translate a sentence to English")
     async def tl(ctx, *, sentence: str):
         translator = Translator()
         try:
@@ -29,16 +29,16 @@ def setup(bot):
             )
             await ctx.send(embed=error_embed)
 
-    @bot.command()
+    @bot.hybrid_command(description="Make the bot say something")
     async def say(ctx, *, message):
         await ctx.message.delete()
         await ctx.send(message)
 
-    @bot.command()
+    @bot.hybrid_command(description="Make the bot repeat your message")
     async def echo(ctx, *, message):
         await ctx.send(message)
 
-    @bot.command()
+    @bot.hybrid_command(description="Get anyone's profile picture")
     async def pfp(ctx, member: discord.Member = None):
         if member:
             avatar_url = member.avatar.url
@@ -46,7 +46,7 @@ def setup(bot):
             avatar_url = ctx.author.avatar.url
         await ctx.channel.send(avatar_url)
 
-    @bot.command()
+    @bot.hybrid_command(description="Hug someone")
     async def hug(ctx, member: discord.Member = None):
         query = ["Anime hug","hug anime","anime hugging","sweet anime hug"]
         l = get_top_8_gifs(random.choice(query))
@@ -62,7 +62,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->PAT COMMAND 🤗<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Pat someone")
     async def pat(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime pat","pat anime","anime patting","sweet anime pat"]
@@ -79,7 +79,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->SLAP COMMAND 🤚🏻<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Slap someone")
     async def slap(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime slap","slap anime","anime slapping","brutal anime slap"]
@@ -96,7 +96,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->KICK COMMAND 🦵🏻<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Kick someone")
     async def kick(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime kick","kick anime","anime kicking","brutal anime kick"]
@@ -113,7 +113,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->KISS COMMAND 💋<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Kiss someone")
     async def kiss(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime kiss","kiss anime","anime kissing","romantic anime kiss"]
@@ -130,7 +130,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->KILL COMMAND 🔪<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Kill someone")
     async def kill(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime kill","kill anime","anime killing","brutal anime kill"]
@@ -148,7 +148,7 @@ def setup(bot):
 
 
     #-------------->BLUSH COMMAND 😳<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Get a random blush gif")
     async def blush(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime blush","blushing anime","anime blushing","cute anime blush"]
@@ -165,13 +165,13 @@ def setup(bot):
         auto.set_image(url=random.choice(l))
         await ctx.send(embed=auto)
 
-    @bot.command()
+    @bot.hybrid_command(description="kuru kuru")
     async def kuru(ctx):
         await ctx.send("kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru kururin kuru kururin")
         await ctx.send("https://tenor.com/hCh8h4nNTBe.gif")
 
     #-------------->SHRUG COMMAND ＼（〇_ｏ）／<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Get a random shrug gif")
     async def shrug(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime shrug","shruging anime","anime shruging","cute anime shrug"]
@@ -190,7 +190,7 @@ def setup(bot):
 
 
     #-------------->POUT COMMAND 😒<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Get a random pout gif")
     async def pout(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime pout","pouting anime","anime pouting","cute anime pout"]
@@ -208,7 +208,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->cry COMMAND 😒<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Get a random crying gif")
     async def cry(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime cry","crying anime","anime crying","cute anime cry"]
@@ -227,7 +227,7 @@ def setup(bot):
 
 
     #-------------->SPIN COMMAND 💫<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Spin around")
     async def spin(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime spin","spinning anime","anime spinning","cute anime spin"]
@@ -245,7 +245,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->Tickle COMMAND 💫<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Tickle someone")
     async def tickle(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime tickle","tickling anime","anime tickling","cute anime tickle"]
@@ -263,7 +263,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->ROAST COMMAND 💫<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Roast someone")
     async def roast(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime roast","roasting anime","anime roasting","angry anime roast"]
@@ -282,7 +282,7 @@ def setup(bot):
 
 
     #-------------->DANCE COMMAND 💃🏻<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Get a random dancing gif")
     async def dance(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime dance","dancing anime","anime dancing","cute anime dance"]
@@ -300,7 +300,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->WAVE COMMAND 👋🏻<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Wave at someone")
     async def wave(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime wave","waving anime","anime waving","cute anime wave"]
@@ -319,7 +319,7 @@ def setup(bot):
 
 
     #-------------->LAUGH COMMAND 😆<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Get a random laughing gif")
     async def laugh(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime laugh","laughing anime","anime laughing","cute anime laugh"]
@@ -337,7 +337,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->WINK COMMAND 😉<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Wink at someone")
     async def wink(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime wink","winking anime","anime winking","cute anime wink"]
@@ -355,7 +355,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->CHEER COMMAND 🥳<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Cheer someone")
     async def cheer(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime cheer","cheering anime","anime cheering","cute anime cheer"]
@@ -374,7 +374,7 @@ def setup(bot):
 
 
     #-------------->THINK COMMAND 🤔<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Get a random thinking gif")
     async def think(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime think","thinking anime","anime thinking","cute anime think"]
@@ -392,7 +392,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->HIGHFIVE COMMAND 🙏🏻<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Highfive someone")
     async def highfive(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime highfive","highfiving anime","anime highfiving","cute anime highfive"]
@@ -410,7 +410,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->SALUTE COMMAND 🫡<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Salute someone")
     async def salute(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime salute","saluting anime","anime saluting","cute anime salute"]
@@ -428,7 +428,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->APPLAUD COMMAND 👏🏻<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Get a random applauding gif")
     async def applaud(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime applaud","applauding anime","anime applauding","cute anime applaud"]
@@ -447,7 +447,7 @@ def setup(bot):
 
 
     #-------------->CLAP COMMAND 👏🏻<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Claap for someone")
     async def clap(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime clap","clapping anime","anime clapping","cute anime clap"]
@@ -465,7 +465,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->SMIRK COMMAND 😏<--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Smirk at someone")
     async def smirk(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime smirk","smirking anime","anime smirking","cute anime smirk"]
@@ -483,7 +483,7 @@ def setup(bot):
         await ctx.send(embed=auto)
 
     #-------------->BULLY COMMAND <--------------#
-    @bot.command()
+    @bot.hybrid_command(description="Bully someone")
     async def bully(ctx,member: discord.Member = None):
         # Example usage
         query = ["Anime bully","bullying anime","anime bullying","cute anime bully"]
