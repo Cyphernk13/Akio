@@ -1,6 +1,6 @@
 import discord
 def setup(bot):
-    @bot.command()
+    @bot.hybrid_command(description="Get help on how to use the bot")
     async def help(ctx):
         auto = discord.Embed(
             title="Help Commands❗",

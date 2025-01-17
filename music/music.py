@@ -98,7 +98,7 @@ def setup(bot):
             logging.error(f"Playback error: {error}")
         await play_next(ctx)
 
-    @bot.command()
+    @bot.hybrid_command(description="Play a song from YouTube")
     async def play(ctx, *, query):
         global current_song
         try:
@@ -118,7 +118,7 @@ def setup(bot):
             await ctx.send(f"An error occurred while trying to play the song: {str(e)}")
             await retry_play(ctx, query)  # Retry playing the song on error
 
-    @bot.command()
+    @bot.hybrid_command(description="Join the voice channel")
     async def join(ctx):
         if not ctx.message.author.voice:
             await ctx.send("{} is not connected to a voice channel".format(ctx.message.author.name))
@@ -128,14 +128,14 @@ def setup(bot):
 
         await channel.connect()
 
-    @bot.command()
+    @bot.hybrid_command(description="Leave the voice channel")
     async def leave(ctx):
         if ctx.voice_client:
             await ctx.guild.voice_client.disconnect()
         else:
             await ctx.send("The bot is not connected to a voice channel.")
 
-    @bot.command()
+    @bot.hybrid_command(description="Pause the music")
     async def pause(ctx):
         if ctx.voice_client.is_playing():
             ctx.voice_client.pause()
@@ -143,7 +143,7 @@ def setup(bot):
         else:
             await ctx.send("No music is playing.")
 
-    @bot.command()
+    @bot.hybrid_command(description="Resume the music")
     async def resume(ctx):
         if ctx.voice_client.is_paused():
             ctx.voice_client.resume()
@@ -151,14 +151,14 @@ def setup(bot):
         else:
             await ctx.send("The music is not paused.")
 
-    @bot.command()
+    @bot.hybrid_command(description="Stop the music and clear the queue")
     async def stop(ctx):
         if ctx.voice_client.is_playing():
             ctx.voice_client.stop()
         songs.clear()
         await ctx.send("Music stopped and queue cleared.")
 
-    @bot.command()
+    @bot.hybrid_command(description="Skip the current song")
     async def skip(ctx):
         if ctx.voice_client.is_playing():
             ctx.voice_client.stop()
@@ -166,7 +166,7 @@ def setup(bot):
         else:
             await ctx.send("No music is playing.")
 
-    @bot.command()
+    @bot.hybrid_command(description="Shuffle the queue")
     async def volume(ctx, volume: int):
         if ctx.voice_client is None:
             return await ctx.send("Not connected to a voice channel.")
@@ -252,7 +252,7 @@ def setup(bot):
         embed.set_thumbnail(url=channel_avatar)
         return embed
 
-    @bot.command()
+    @bot.hybrid_command(description="Show the music queue")
     async def queue(ctx):
         if ctx.voice_client and ctx.voice_client.is_playing():
             embed = discord.Embed(title="Music Queue", color=discord.Color.blue())

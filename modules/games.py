@@ -9,7 +9,7 @@ characters_file = "modules\characters.json"
 leaderboard = {}
 def setup(bot):
 
-    @bot.command()
+    @bot.hybrid_command(description="Ask the bot anything")
     async def query(ctx, *, question: str):
         response = await ai(question)
         await ctx.send(response)
@@ -30,7 +30,7 @@ def setup(bot):
             response = await ai(question)
             await message.channel.send(response)
 
-    @bot.command()
+    @bot.hybrid_command(description="Play a number guessing game")
     async def guess(ctx):
         number = random.randint(1, 100)
         attempts = 0
@@ -63,7 +63,7 @@ def setup(bot):
 
                 return
 
-    @bot.command()
+    @bot.hybrid_command(description="Play a rock-paper-scissors game")
     async def rps(ctx):
         choices = ['rock', 'paper', 'scissors']
         abbreviations = {'r': 'rock', 'p': 'paper', 's': 'scissors'}
@@ -97,7 +97,7 @@ def setup(bot):
             await ctx.send(f'{user.mention} wins!')
         else:
             await ctx.send(f'I win! {user.mention} loses.')
-    @bot.command()
+    @bot.hybrid_command(description="Ask the Magic 8-Ball a question")
     async def ask(ctx, *, question):
         responses = [
         "It is certain.",
@@ -132,7 +132,7 @@ def setup(bot):
         )
         await ctx.send(embed=embed)
 
-    @bot.command()
+    @bot.hybrid_command(description="Flip a coin")
     async def flip(ctx):
         # Randomly choose "Heads" or "Tails"
         result = random.choice(["Heads", "Tails"])
@@ -145,7 +145,7 @@ def setup(bot):
         )
         await ctx.send(embed=embed)
 
-    @bot.command()
+    @bot.hybrid_command(description="Get drawing ideas.")
     async def draw(ctx):
         global characters_file  
         try:
@@ -165,7 +165,7 @@ def setup(bot):
         except Exception as e:
             await ctx.send(f"An error occurred: {e}")
 
-    @bot.command()
+    @bot.hybrid_command(description = "Calculate the love percentage of two people.")
     async def love(ctx, user1: discord.Member, user2: discord.Member):
         embed = discord.Embed(title="Love Calculator", color=discord.Color.red())
         if user1 == user2:
