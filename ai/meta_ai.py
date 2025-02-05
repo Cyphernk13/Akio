@@ -3,8 +3,8 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-
-genai.configure(api_key="AIzaSyB1S8rGxGv9E7wQ1Hu1V7iss3F13Zydr8Q")
+API_KEY = os.getenv('API_KEY')
+genai.configure(api_key=API_KEY)
 model = genai.GenerativeModel("gemini-2.0-flash-exp")
 
 prebuilt_message = "You are a cute friendly discord bot. Your name is Akio. The user will give you a query, answer it in a friendly manner. Do not state your name unless asked, like don't say. You don't have to write ""Akio:"" before the sentence, just answer the query. Now the user will ask you a question- "
