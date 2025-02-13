@@ -15,10 +15,11 @@ async def ai(user_input: str) -> str:
     try:
         # Add the new user input to the conversation history
         conversation_history += f"\nUser: {user_input}"
-
+        
+        print(f"Debug: Sending prompt -> {conversation_history}")
         # Send the full conversation history as a prompt to retain context
         response = ai_instance.prompt(message=conversation_history)
-
+        print(f"Debug: Received response -> {response}")  # Add this to log API output
         # Process the response
         if isinstance(response, dict) and 'message' in response:
             bot_response = response['message'].strip()
