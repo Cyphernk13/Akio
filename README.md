@@ -8,7 +8,7 @@ Meet Akio, a Discord bot that brings fun, interactivity, and utility to your ser
 
 ### Main Features
 
-1. **Ask Anything / Generate AI Images**
+1. **Ask Anything**
    - Command: `akio query <your question here>`
    - Example: `akio query What's the weather today?`
 
@@ -67,6 +67,5 @@ Meet Akio, a Discord bot that brings fun, interactivity, and utility to your ser
    python main.py
 4. Create a .env file and modify the fields
    ```sh
-   API_KEY='Enter your Gemini Api key here'
    GIF= 'Enter your Tenor GIF API Key here'
    TOKEN = 'Enter your Bot Token here'
