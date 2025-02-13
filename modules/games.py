@@ -5,7 +5,7 @@ import asyncio
 import json
 from ai.meta_ai import ai
 
-characters_file = "modules\characters.json"
+characters_file = "modules/characters.json"
 leaderboard = {}
 def setup(bot):
 
