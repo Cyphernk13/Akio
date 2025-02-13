@@ -178,8 +178,7 @@ def setup(bot):
             user2_name = user2.nick if user2.nick else user2.name
             if bot.user in [user1, user2]:
                 love_percentage = 100
-                embed.description = f"Awww akio loves you a lot, {ctx.author.nick or ctx.author.name}! ( ´･･)ﾉ(･･ `˶)\nLove Percentage: {love_percentage}%"
+                embed.description = f"Awww akio loves you a lot, {ctx.author.nick or ctx.author.name}! ( ´･･)ﾉ(･･ ˶)\nLove Percentage: {love_percentage}%"
             else:
                 embed.add_field(name=f"{user1_name} ❤️ {user2_name}", value=f"Love Percentage: {love_percentage}%")
         await ctx.send(embed=embed)
-

@@ -20,5 +20,4 @@ async def on_message(message):
 
 ##------------>TOKEN<-----------##
 TOKEN = os.getenv('TOKEN')
-print(f"TOKEN: {TOKEN}")  # Add this line to check the value
 bot.run(TOKEN)
