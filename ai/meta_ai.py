@@ -14,7 +14,7 @@ conversation_history = prebuilt_message  # Initialize with the prebuilt message
 import os
 import google.generativeai as genai
 
-genai.configure(api_key="AIzaSyB1S8rGxGv9E7wQ1Hu1V7iss3F13Zydr8Q")
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Create the model
 generation_config = {
