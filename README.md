@@ -67,8 +67,6 @@ Meet Akio, a Discord bot that brings fun, interactivity, and utility to your ser
    python main.py
 4. Create a .env file and modify the fields
    ```sh
-   FB_Email = 'Enter your facebook email here'
-   FB_Password = 'Enter your facebook password here'
+   API_KEY='Enter your Gemini Api key here'
    GIF= 'Enter your Tenor GIF API Key here'
    TOKEN = 'Enter your Bot Token here'
-   Note: Fb Email and Password are required for accessing Meta AI Image generation
