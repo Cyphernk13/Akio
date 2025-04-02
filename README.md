@@ -65,7 +65,8 @@ Meet Akio, a Discord bot that brings fun, interactivity, and utility to your ser
 3. Run the bot:
    ```sh
    python main.py
-4. Create a .env file and modify the fields
+4. Create a .env file in the root directory and modify these fields
    ```sh
    GIF= 'Enter your Tenor GIF API Key here'
+   GEMINI_API_KEY='Enter your Gemini API Key here'
    TOKEN = 'Enter your Bot Token here'
