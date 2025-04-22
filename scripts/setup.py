@@ -9,6 +9,6 @@ bot = commands.Bot(command_prefix=['Akio ', 'akio '], help_command=None, intents
 
 @bot.event
 async def on_ready():
-    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.listening, name="akio help"))
+    await bot.change_presence(activity=discord.Streaming(name="My Stream", url="https://www.twitch.tv/discord"))
     print(f'Logged in as {bot.user.name}')
     await bot.tree.sync()
