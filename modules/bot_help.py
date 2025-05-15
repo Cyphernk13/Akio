@@ -5,18 +5,17 @@ def setup(bot):
         auto = discord.Embed(
             title="Help Commands❗",
             description=(
-                "Prefix is `akio`\n"
-                "1. Ask me anything 😎 ```akio query <your question here>```\n"
-                "2. Hehe, wanna hug/kiss/kill/slap etc. someone? Just mention them! Use ```akio <action> <mention>```\n ```Current actions available: hug kiss slap kill blush smirk tickle roast kick shrug pat bully clap applaud salute highfive think cheer wink laugh wave dances spin and pout```\n"
-                "3. I can repeat your sentences as well as sing with you :D Use ```akio echo <sentence to repeat>```\n"
-                "4. GAMES!!! (under development) ```akio guess, akio rps```\n"
-                "5. Maths! do some fun maths operations currently available ```add sub mul div root square log power```\n"
-                "6. Fetch pfp of a user by ```akio pfp <mention>```\n"
-                "7. Translate any language! ```akio tl <sentence to translate>```\n"
-                "8. Get random drawing ideas, random numbers and more ```akio draw | akio flip | akio ask```\n"
-                "9. Calculate love percentage!!! ```akio love user1 user2```\n"
-                "10. MUSIC (Beta) ```akio play <url or name> | akio queue```\n"
-                "11. kuru~ kuru~ kuru~ kuru~ ```akio kuru```" ), color=discord.Color.random())
+                "Prefix is `akio/Akio`\n"
+                "Ask me anything <:miku_dab:1228484805562208416> ```query <your question here> or mention me!```\n"
+                "Actions! ```<action> <mention>```\n ```Current actions available: hug kiss slap kill blush smirk tickle roast kick shrug pat bully clap applaud salute highfive think cheer wink laugh wave dances spin and pout```\n"
+                "Repeat your sentences. ```echo <sentence to repeat>, say <your message>``` \n"
+                "GAMES and Ideas!!! ```guess, rps, tictactoe, flip, ask, draw```\n"
+                "Maths! ```add sub mul div root square log power```\n"
+                "Fetch pfp of a user by ```pfp <user>```\n"
+                "Translate any language to English! ```tl <sentence to translate>```\n"
+                "Calculate love percentage!!! ```love user1 user2```\n"
+                "MUSIC (Not Working) ```play <url or name> | akio queue```\n"
+                "kuru~ kuru~ kuru~ kuru~ ```akio kuru```" ), color=discord.Color.random())
         avatar_url = bot.user.avatar.url
         auto.set_thumbnail(url=avatar_url)
         await ctx.send(embed=auto)
