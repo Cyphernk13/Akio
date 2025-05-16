@@ -16,6 +16,26 @@ class RPSView(discord.ui.View):
         self.players = players
         self.choices = {}
         self.challenger_choice = challenger_choice
+        self.challenger_id = players[0].id if len(players) > 1 else None
+
+    async def on_timeout(self):
+        # Cleanup active challenges
+        if self.challenger_id and self.challenger_id in active_challenges:
+            del active_challenges[self.challenger_id]
+        
+        # Disable buttons and update message
+        for child in self.children:
+            child.disabled = True
+            
+        embed = discord.Embed(
+            title="⏰ Challenge Expired",
+            description="The challenge timed out due to inactivity.",
+            color=discord.Color.dark_grey()
+        )
+        try:
+            await self.message.edit(embed=embed, view=self)
+        except discord.NotFound:
+            pass
 
     @discord.ui.button(label="🪨 Rock", style=discord.ButtonStyle.primary)
     async def rock(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -303,27 +323,35 @@ def setup(bot):
             await ctx.send("❌ You can't challenge bots!", ephemeral=True)
             return
 
-        if opponent:
+        try:
+            if opponent:
+                if ctx.author.id in active_challenges:
+                    await ctx.send("❌ You already have an active challenge!", ephemeral=True)
+                    return
+                    
+                embed = discord.Embed(
+                    title="🎮 RPS Challenge!",
+                    description=f"{opponent.mention}, you've been challenged by {ctx.author.mention}!\nClick a button below to accept:",
+                    color=discord.Color.green()
+                )
+                view = RPSView(players=[ctx.author, opponent])
+                active_challenges[ctx.author.id] = (opponent.id, view)
+                message = await ctx.send(embed=embed, view=view)
+                view.message = message  # Store message reference for timeout handling
+            else:
+                embed = discord.Embed(
+                    title="Rock Paper Scissors",
+                    description="Choose your move:",
+                    color=discord.Color.blue()
+                )
+                view = RPSView(players=[ctx.author])
+                await ctx.send(embed=embed, view=view)
+        
+        except Exception as e:
+            # Cleanup if something goes wrong
             if ctx.author.id in active_challenges:
-                await ctx.send("❌ You already have an active challenge!", ephemeral=True)
-                return
-                
-            embed = discord.Embed(
-                title="🎮 RPS Challenge!",
-                description=f"{opponent.mention}, you've been challenged by {ctx.author.mention}!\nClick a button below to accept:",
-                color=discord.Color.green()
-            )
-            view = RPSView(players=[ctx.author, opponent])
-            active_challenges[ctx.author.id] = (opponent.id, view)
-            await ctx.send(embed=embed, view=view)
-        else:
-            embed = discord.Embed(
-                title="Rock Paper Scissors",
-                description="Choose your move:",
-                color=discord.Color.blue()
-            )
-            view = RPSView(players=[ctx.author])
-            await ctx.send(embed=embed, view=view)
+                del active_challenges[ctx.author.id]
+            raise e
 
     @bot.hybrid_command(description="Calculate love percentage")
     async def love(ctx, user1: discord.Member, user2: discord.Member):
@@ -384,6 +412,13 @@ def setup(bot):
                 f"Tic Tac Toe: {ctx.author.mention} (X) vs {ctx.bot.user.mention} (O)\n{ctx.author.mention} goes first!",
                 view=view
             )
+    @bot.hybrid_command(description="Cancel your active challenge")
+    async def cancel(ctx):
+        if ctx.author.id in active_challenges:
+            del active_challenges[ctx.author.id]
+            await ctx.send("✅ Your active challenge has been canceled!", ephemeral=True)
+        else:
+            await ctx.send("❌ You don't have any active challenges!", ephemeral=True)
 
     @bot.hybrid_command(description="Get drawing ideas")
     async def draw(ctx):
