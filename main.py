@@ -6,6 +6,7 @@ from modules import commands, maths, bot_help
 from games import rps, tictactoe, love, guess, flip, draw, challenge
 from ai import gemini
 from music import music
+from anime.commands import setup as setup_anime
 
 load_dotenv()
 commands.setup(bot)
@@ -20,6 +21,7 @@ flip.setup(bot)
 draw.setup(bot)
 challenge.setup(bot)
 gemini.setup(bot)
+setup_anime(bot)
 
 @bot.event
 async def on_message(message):
