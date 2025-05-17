@@ -3,14 +3,24 @@ from scripts.setup import bot
 import discord
 import os
 from modules import commands, games, maths, bot_help
+from games import rps, tictactoe, love, guess, flip, draw, challenge
+from ai import gemini
 from music import music
 
 load_dotenv()
 commands.setup(bot)
-games.setup(bot)
+# games.setup(bot)
 maths.setup(bot)
 music.setup(bot)
 bot_help.setup(bot)
+rps.setup(bot)
+tictactoe.setup(bot)
+love.setup(bot)
+guess.setup(bot)
+flip.setup(bot)
+draw.setup(bot)
+challenge.setup(bot)
+gemini.setup(bot)
 
 @bot.event
 async def on_message(message):

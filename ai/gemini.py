@@ -68,3 +68,18 @@ async def ai(user_input: str) -> str:
     except Exception as e:
         print(f"An error occurred: {e}")
         return ""
+    
+def setup(bot):
+    @bot.hybrid_command(description="Ask the bot anything")
+    async def query(ctx, *, question: str):
+        response = await ai(question)
+        await ctx.send(response)
+
+    @bot.listen("on_message")
+    async def handle_mentions(message):
+        if message.author == bot.user:
+            return
+        if bot.user in message.mentions:
+            question = message.content.replace(f"<@{bot.user.id}>", "").strip()
+            response = await ai(question)
+            await message.channel.send(response)
