@@ -14,10 +14,10 @@ async def on_ready():
     print(f'Logged in as {bot.user.name}')
     await bot.tree.sync()
 
-    node = wavelink.Node(
-        uri='http://lavalink.serenetia.com:443',
-        password='https://dsc.gg/ajidevserver',
-        secure=True  # Changed from https=True
-    )
-    await wavelink.NodePool.connect(client=bot, nodes=[node])
-    print("Lavalink connected!")
+    # node = wavelink.Node(
+    #     uri='http://lavalink.serenetia.com:443',
+    #     password='https://dsc.gg/ajidevserver',
+    #     secure=True  # Changed from https=True
+    # )
+    # await wavelink.NodePool.connect(client=bot, nodes=[node])
+    # print("Lavalink connected!")
