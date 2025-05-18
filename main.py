@@ -5,13 +5,13 @@ import os
 from modules import commands, maths, bot_help
 from games import rps, tictactoe, love, guess, flip, draw, challenge
 from ai import gemini
-# from music import music
+from music import music
 from anime.commands import setup as setup_anime
 
 load_dotenv()
 commands.setup(bot)
 maths.setup(bot)
-# music.setup(bot)
+music.setup(bot)
 bot_help.setup(bot)
 rps.setup(bot)
 tictactoe.setup(bot)
