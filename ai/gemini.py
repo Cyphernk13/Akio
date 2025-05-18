@@ -26,7 +26,7 @@ generation_config = {
 }
 
 model = genai.GenerativeModel(
-  model_name="gemini-2.0-flash-thinking-exp-01-21",
+  model_name="gemini-2.0-flash",
   generation_config=generation_config,
   system_instruction=prebuilt_message
 )
