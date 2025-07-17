@@ -4,25 +4,27 @@ from typing import List, Tuple, Optional
 from games.shared import active_challenges
 
 class DotsAndBoxesButton(discord.ui.Button):
-    def __init__(self, line_type: str, row: int, col: int, game_size: int = 3, button_row: int = 0):
+    def __init__(self, line_id: str, line_type: str, row: int, col: int, button_row: int = 0):
         """
+        line_id: unique identifier for this line
         line_type: 'h' for horizontal, 'v' for vertical
-        row, col: position of the line
+        row, col: position of the line in the grid
         button_row: which UI row this button should be in
         """
         super().__init__(style=discord.ButtonStyle.secondary, row=button_row)
+        self.line_id = line_id
         self.line_type = line_type
         self.row = row
         self.col = col
         self.is_drawn = False
         
-        # Set appropriate emoji and label based on line type
+        # Set simple, clear labels
         if line_type == 'h':
             self.emoji = "➖"
-            self.label = f"H{row},{col}"
+            self.label = f"━ {line_id}"
         else:  # vertical
-            self.emoji = "🔸"
-            self.label = f"V{row},{col}"
+            self.emoji = "⬜"
+            self.label = f"┃ {line_id}"
 
     async def callback(self, interaction: discord.Interaction):
         view: DotsAndBoxesView = self.view
@@ -43,9 +45,9 @@ class DotsAndBoxesButton(discord.ui.Button):
 
         # Draw the line
         self.is_drawn = True
-        self.style = discord.ButtonStyle.primary
+        self.style = discord.ButtonStyle.success
         self.disabled = True
-        self.label = "✅"
+        self.label = f"✅ {self.line_id}"
         
         # Update the game state
         if self.line_type == 'h':
@@ -91,7 +93,7 @@ class DotsAndBoxesButton(discord.ui.Button):
         await interaction.response.edit_message(content=content, embed=embed, view=view)
 
 class DotsAndBoxesView(discord.ui.View):
-    def __init__(self, player1: discord.Member, player2: discord.Member, game_size: int = 3):
+    def __init__(self, player1: discord.Member, player2: discord.Member, game_size: int = 2):
         super().__init__(timeout=300)  # 5 minutes timeout
         
         self.player1 = player1
@@ -104,9 +106,7 @@ class DotsAndBoxesView(discord.ui.View):
         self.scores = {player1: 0, player2: 0}
         
         # Initialize line states
-        # horizontal_lines[row][col] represents horizontal line between dots
         self.horizontal_lines = [[False for _ in range(game_size)] for _ in range(game_size + 1)]
-        # vertical_lines[row][col] represents vertical line between dots
         self.vertical_lines = [[False for _ in range(game_size + 1)] for _ in range(game_size)]
         
         # Track completed boxes for visual representation
@@ -115,53 +115,33 @@ class DotsAndBoxesView(discord.ui.View):
         self.setup_buttons()
 
     def setup_buttons(self):
-        """Setup all the line buttons in a proper layout"""
-        # Calculate total buttons needed
-        total_horizontal = (self.game_size + 1) * self.game_size
-        total_vertical = self.game_size * (self.game_size + 1)
-        total_buttons = total_horizontal + total_vertical
+        """Setup buttons in a clean, organized layout"""
+        current_row = 0
+        buttons_in_row = 0
         
-        if total_buttons > 25:
-            # This should have been caught earlier, but just in case
-            return
-        
-        current_button_row = 0
-        buttons_in_current_row = 0
-        max_buttons_per_row = 5
-        
-        # Add horizontal lines first
+        # Create horizontal line buttons with clear labels
         for row in range(self.game_size + 1):
             for col in range(self.game_size):
-                if buttons_in_current_row >= max_buttons_per_row:
-                    current_button_row += 1
-                    buttons_in_current_row = 0
-                
-                if current_button_row >= 5:  # Discord's max rows
-                    break
+                if buttons_in_row >= 5:
+                    current_row += 1
+                    buttons_in_row = 0
                     
-                btn = DotsAndBoxesButton('h', row, col, self.game_size, current_button_row)
+                line_id = f"H{row}{col}"
+                btn = DotsAndBoxesButton(line_id, 'h', row, col, current_row)
                 self.add_item(btn)
-                buttons_in_current_row += 1
-            
-            if current_button_row >= 5:
-                break
+                buttons_in_row += 1
         
-        # Add vertical lines
+        # Create vertical line buttons with clear labels
         for row in range(self.game_size):
             for col in range(self.game_size + 1):
-                if buttons_in_current_row >= max_buttons_per_row:
-                    current_button_row += 1
-                    buttons_in_current_row = 0
-                
-                if current_button_row >= 5:  # Discord's max rows
-                    break
+                if buttons_in_row >= 5:
+                    current_row += 1
+                    buttons_in_row = 0
                     
-                btn = DotsAndBoxesButton('v', row, col, self.game_size, current_button_row)
+                line_id = f"V{row}{col}"
+                btn = DotsAndBoxesButton(line_id, 'v', row, col, current_row)
                 self.add_item(btn)
-                buttons_in_current_row += 1
-            
-            if current_button_row >= 5:
-                break
+                buttons_in_row += 1
 
     def switch_turn(self):
         """Switch to the other player"""
@@ -237,63 +217,60 @@ class DotsAndBoxesView(discord.ui.View):
         return None
 
     def create_visual_grid(self) -> str:
-        """Create a visual representation of the current game state"""
-        grid = []
+        """Create a visual representation with line reference IDs"""
+        lines = []
+        
+        # Add explanation header
+        lines.append("📍 Line Reference Guide:")
+        lines.append("━ = Horizontal lines (H##)")
+        lines.append("┃ = Vertical lines (V##)")
+        lines.append("")
         
         for row in range(self.game_size + 1):
-            # Dot row
-            dot_line = ""
+            # Horizontal lines row
+            h_line = ""
             for col in range(self.game_size + 1):
-                dot_line += "🔹"  # Dot
+                h_line += "🔹"  # Dot
                 if col < self.game_size:
-                    # Horizontal line
+                    line_id = f"H{row}{col}"
                     if self.horizontal_lines[row][col]:
-                        dot_line += "━━"
+                        h_line += "━━"
                     else:
-                        dot_line += "  "
-            grid.append(dot_line)
+                        h_line += f" {line_id[-1]} "  # Show last digit of ID
+            lines.append(h_line)
             
-            # Box row (if not the last row)
+            # Vertical lines and boxes row (if not the last row)
             if row < self.game_size:
-                box_line = ""
+                v_line = ""
                 for col in range(self.game_size + 1):
-                    # Vertical line
+                    line_id = f"V{row}{col}"
                     if self.vertical_lines[row][col]:
-                        box_line += "┃"
+                        v_line += "┃"
                     else:
-                        box_line += " "
+                        v_line += f"{line_id[-1]}"  # Show last digit of ID
                     
                     if col < self.game_size:
                         # Box content
                         if self.completed_boxes[row][col]:
                             if self.completed_boxes[row][col] == self.player1:
-                                box_line += "🔴"  # Player 1's box
+                                v_line += "🔴"
                             else:
-                                box_line += "🔵"  # Player 2's box
+                                v_line += "🔵"
                         else:
-                            box_line += "  "
-                grid.append(box_line)
+                            v_line += "  "
+                lines.append(v_line)
         
-        return "\n".join(grid)
+        return "\n".join(lines)
 
     def create_game_embed(self) -> discord.Embed:
         """Create a beautiful embed showing the game state"""
         embed = discord.Embed(
             title="🎯 Dots and Boxes",
-            description="Draw lines to complete boxes and score points!",
+            description="Click the buttons below to draw lines!",
             color=0x00ff00 if self.current_player == self.player1 else 0xff0000
         )
         
-        # Add the visual grid
-        grid_visual = self.create_visual_grid()
-        if len(grid_visual) <= 1024:  # Discord field limit
-            embed.add_field(
-                name="🎮 Game Board",
-                value=f"```\n{grid_visual}\n```",
-                inline=False
-            )
-        
-        # Player scores
+        # Player scores - more prominent
         embed.add_field(
             name=f"🔴 {self.player1.display_name}",
             value=f"**{self.scores[self.player1]}** boxes",
@@ -314,18 +291,27 @@ class DotsAndBoxesView(discord.ui.View):
                 inline=True
             )
         
-        # Game instructions
+        # Add the visual grid
+        grid_visual = self.create_visual_grid()
+        if len(grid_visual) <= 1024:
+            embed.add_field(
+                name="🎮 Game Board & Button Guide",
+                value=f"```\n{grid_visual}\n```",
+                inline=False
+            )
+        
+        # Simple instructions
         if not self.game_over:
             embed.add_field(
                 name="📋 How to Play",
-                value="Click buttons to draw lines!\n➖ = Horizontal lines\n🔸 = Vertical lines\n\nComplete boxes to score points!",
+                value="• Click ➖ buttons for horizontal lines\n• Click ⬜ buttons for vertical lines\n• Complete boxes to score points!\n• Numbers in grid show button IDs",
                 inline=False
             )
         
         # Footer with game info
         total_boxes = self.game_size * self.game_size
         completed_boxes = sum(self.scores.values())
-        embed.set_footer(text=f"Boxes completed: {completed_boxes}/{total_boxes} | Game size: {self.game_size}x{self.game_size}")
+        embed.set_footer(text=f"Boxes: {completed_boxes}/{total_boxes} | Grid: {self.game_size}x{self.game_size}")
         
         return embed
 
@@ -347,7 +333,7 @@ def setup(bot):
         
         Parameters:
         - opponent: The player to challenge
-        - size: Grid size (2-3, default 2). Larger sizes may exceed Discord button limits.
+        - size: Grid size (2 only for now to keep UI clean)
         """
         
         # Validation
@@ -359,17 +345,8 @@ def setup(bot):
             await ctx.send("❌ You can't play against a bot!", ephemeral=True)
             return
             
-        if size < 2 or size > 3:
-            await ctx.send("❌ Grid size must be 2 or 3!", ephemeral=True)
-            return
-            
-        # Check button limit (exact calculation)
-        total_horizontal = (size + 1) * size
-        total_vertical = size * (size + 1)
-        total_buttons = total_horizontal + total_vertical
-        
-        if total_buttons > 25:
-            await ctx.send(f"❌ Grid size {size}x{size} requires {total_buttons} buttons, which exceeds Discord's 25 button limit!\nTry size 2.", ephemeral=True)
+        if size != 2:
+            await ctx.send("❌ Only 2x2 grid is supported for clean UI! Use: `/dots @opponent`", ephemeral=True)
             return
         
         # Check if players are already in a game
@@ -391,9 +368,9 @@ def setup(bot):
             await ctx.send(
                 f"🎯 **Dots and Boxes Game Started!**\n"
                 f"🔴 {ctx.author.mention} vs 🔵 {opponent.mention}\n"
-                f"🎲 Grid Size: {size}x{size} ({total_buttons} buttons)\n"
+                f"🎲 2x2 Grid (12 lines total)\n"
                 f"🎮 {ctx.author.mention} goes first!\n\n"
-                f"Draw lines by clicking the buttons. Complete boxes to score points!",
+                f"**Instructions:** Use the buttons below to draw lines. The numbers in the grid show which button controls each line!",
                 embed=embed,
                 view=view
             )
@@ -403,13 +380,10 @@ def setup(bot):
             if game_key in active_challenges:
                 del active_challenges[game_key]
             await ctx.send(f"❌ An error occurred while starting the game: {str(e)}", ephemeral=True)
-            raise  # Re-raise for debugging
 
     @bot.hybrid_command(description="View Dots and Boxes leaderboard")
     async def dotsleaderboard(ctx):
         """Show the Dots and Boxes leaderboard"""
-        # This would require implementing a persistent leaderboard system
-        # For now, just show a placeholder
         embed = discord.Embed(
             title="🏆 Dots and Boxes Leaderboard",
             description="Leaderboard feature coming soon!",
