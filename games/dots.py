@@ -4,24 +4,25 @@ from typing import List, Tuple, Optional
 from games.shared import active_challenges
 
 class DotsAndBoxesButton(discord.ui.Button):
-    def __init__(self, line_type: str, row: int, col: int, game_size: int = 3):
+    def __init__(self, line_type: str, row: int, col: int, game_size: int = 3, button_row: int = 0):
         """
         line_type: 'h' for horizontal, 'v' for vertical
         row, col: position of the line
+        button_row: which UI row this button should be in
         """
-        super().__init__(style=discord.ButtonStyle.secondary, row=row % 5)
+        super().__init__(style=discord.ButtonStyle.secondary, row=button_row)
         self.line_type = line_type
         self.row = row
         self.col = col
         self.is_drawn = False
         
-        # Set appropriate emoji based on line type
+        # Set appropriate emoji and label based on line type
         if line_type == 'h':
             self.emoji = "➖"
+            self.label = f"H{row},{col}"
         else:  # vertical
             self.emoji = "🔸"
-            
-        self.label = "\u200b"  # Invisible character
+            self.label = f"V{row},{col}"
 
     async def callback(self, interaction: discord.Interaction):
         view: DotsAndBoxesView = self.view
@@ -44,6 +45,7 @@ class DotsAndBoxesButton(discord.ui.Button):
         self.is_drawn = True
         self.style = discord.ButtonStyle.primary
         self.disabled = True
+        self.label = "✅"
         
         # Update the game state
         if self.line_type == 'h':
@@ -113,35 +115,53 @@ class DotsAndBoxesView(discord.ui.View):
         self.setup_buttons()
 
     def setup_buttons(self):
-        """Setup all the line buttons in a compact layout"""
-        buttons = []
+        """Setup all the line buttons in a proper layout"""
+        # Calculate total buttons needed
+        total_horizontal = (self.game_size + 1) * self.game_size
+        total_vertical = self.game_size * (self.game_size + 1)
+        total_buttons = total_horizontal + total_vertical
         
-        # For a 3x3 grid, we need:
-        # - 4 rows of 3 horizontal lines each = 12 horizontal lines
-        # - 3 rows of 4 vertical lines each = 12 vertical lines
-        # Total: 24 buttons (perfect for Discord's 25 limit)
+        if total_buttons > 25:
+            # This should have been caught earlier, but just in case
+            return
         
-        button_count = 0
+        current_button_row = 0
+        buttons_in_current_row = 0
+        max_buttons_per_row = 5
         
-        # Add horizontal lines
+        # Add horizontal lines first
         for row in range(self.game_size + 1):
             for col in range(self.game_size):
-                if button_count < 25:  # Discord limit
-                    btn = DotsAndBoxesButton('h', row, col, self.game_size)
-                    buttons.append(btn)
-                    button_count += 1
+                if buttons_in_current_row >= max_buttons_per_row:
+                    current_button_row += 1
+                    buttons_in_current_row = 0
+                
+                if current_button_row >= 5:  # Discord's max rows
+                    break
+                    
+                btn = DotsAndBoxesButton('h', row, col, self.game_size, current_button_row)
+                self.add_item(btn)
+                buttons_in_current_row += 1
+            
+            if current_button_row >= 5:
+                break
         
         # Add vertical lines
         for row in range(self.game_size):
             for col in range(self.game_size + 1):
-                if button_count < 25:  # Discord limit
-                    btn = DotsAndBoxesButton('v', row, col, self.game_size)
-                    buttons.append(btn)
-                    button_count += 1
-        
-        # Add buttons to view (Discord automatically arranges them in rows of 5)
-        for btn in buttons:
-            self.add_item(btn)
+                if buttons_in_current_row >= max_buttons_per_row:
+                    current_button_row += 1
+                    buttons_in_current_row = 0
+                
+                if current_button_row >= 5:  # Discord's max rows
+                    break
+                    
+                btn = DotsAndBoxesButton('v', row, col, self.game_size, current_button_row)
+                self.add_item(btn)
+                buttons_in_current_row += 1
+            
+            if current_button_row >= 5:
+                break
 
     def switch_turn(self):
         """Switch to the other player"""
@@ -321,13 +341,13 @@ class DotsAndBoxesView(discord.ui.View):
 
 def setup(bot):
     @bot.hybrid_command(description="Play Dots and Boxes with another player")
-    async def dots(ctx, opponent: discord.Member, size: int = 3):
+    async def dots(ctx, opponent: discord.Member, size: int = 2):
         """
         Start a game of Dots and Boxes
         
         Parameters:
         - opponent: The player to challenge
-        - size: Grid size (2-4, default 3). Larger sizes may exceed Discord button limits.
+        - size: Grid size (2-3, default 2). Larger sizes may exceed Discord button limits.
         """
         
         # Validation
@@ -339,14 +359,17 @@ def setup(bot):
             await ctx.send("❌ You can't play against a bot!", ephemeral=True)
             return
             
-        if size < 2 or size > 4:
-            await ctx.send("❌ Grid size must be between 2 and 4!", ephemeral=True)
+        if size < 2 or size > 3:
+            await ctx.send("❌ Grid size must be 2 or 3!", ephemeral=True)
             return
             
-        # Check button limit (rough calculation)
-        total_buttons = (size + 1) * size + size * (size + 1)
+        # Check button limit (exact calculation)
+        total_horizontal = (size + 1) * size
+        total_vertical = size * (size + 1)
+        total_buttons = total_horizontal + total_vertical
+        
         if total_buttons > 25:
-            await ctx.send(f"❌ Grid size {size}x{size} requires {total_buttons} buttons, which exceeds Discord's 25 button limit!\nTry a smaller grid size.", ephemeral=True)
+            await ctx.send(f"❌ Grid size {size}x{size} requires {total_buttons} buttons, which exceeds Discord's 25 button limit!\nTry size 2.", ephemeral=True)
             return
         
         # Check if players are already in a game
@@ -368,7 +391,7 @@ def setup(bot):
             await ctx.send(
                 f"🎯 **Dots and Boxes Game Started!**\n"
                 f"🔴 {ctx.author.mention} vs 🔵 {opponent.mention}\n"
-                f"🎲 Grid Size: {size}x{size}\n"
+                f"🎲 Grid Size: {size}x{size} ({total_buttons} buttons)\n"
                 f"🎮 {ctx.author.mention} goes first!\n\n"
                 f"Draw lines by clicking the buttons. Complete boxes to score points!",
                 embed=embed,
@@ -380,6 +403,7 @@ def setup(bot):
             if game_key in active_challenges:
                 del active_challenges[game_key]
             await ctx.send(f"❌ An error occurred while starting the game: {str(e)}", ephemeral=True)
+            raise  # Re-raise for debugging
 
     @bot.hybrid_command(description="View Dots and Boxes leaderboard")
     async def dotsleaderboard(ctx):
