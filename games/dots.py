@@ -75,6 +75,14 @@ class DotsAndBoxesButton(discord.ui.Button):
             view.stop()
             for child in view.children:
                 child.disabled = True
+            
+            # Clean up active game when finished
+            game_key = f"{view.player1.id}_{view.player2.id}"
+            reverse_key = f"{view.player2.id}_{view.player1.id}"
+            if game_key in active_challenges:
+                del active_challenges[game_key]
+            if reverse_key in active_challenges:
+                del active_challenges[reverse_key]
 
         # Update the embed with current game state
         embed = view.create_game_embed()
@@ -301,6 +309,16 @@ class DotsAndBoxesView(discord.ui.View):
         
         return embed
 
+    async def on_timeout(self):
+        """Clean up when the view times out"""
+        game_key = f"{self.player1.id}_{self.player2.id}"
+        reverse_key = f"{self.player2.id}_{self.player1.id}"
+        if game_key in active_challenges:
+            del active_challenges[game_key]
+        if reverse_key in active_challenges:
+            del active_challenges[reverse_key]
+        self.stop()
+
 def setup(bot):
     @bot.hybrid_command(description="Play Dots and Boxes with another player")
     async def dots(ctx, opponent: discord.Member, size: int = 3):
@@ -362,13 +380,6 @@ def setup(bot):
             if game_key in active_challenges:
                 del active_challenges[game_key]
             await ctx.send(f"❌ An error occurred while starting the game: {str(e)}", ephemeral=True)
-        
-        # Clean up when game ends
-        async def cleanup():
-            if game_key in active_challenges:
-                del active_challenges[game_key]
-        
-        view.add_callback = cleanup
 
     @bot.hybrid_command(description="View Dots and Boxes leaderboard")
     async def dotsleaderboard(ctx):
