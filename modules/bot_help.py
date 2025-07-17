@@ -10,7 +10,7 @@ def setup(bot):
                 "MyAnimeList ```anime <name>, manga <name>, user <mal username>, char <name>, seasonal <year(optional)> <season>, top <type(ova, tv, etc)>``` \n"
                 "Actions! ```<action> <mention>```\n ```Current actions available: hug kiss slap kill blush smirk tickle roast kick shrug pat bully clap applaud salute highfive think cheer wink laugh wave dances spin and pout```\n"
                 "Repeat your sentences. ```echo <sentence to repeat>, say <your message>``` \n"
-                "GAMES and Ideas!!! ```guess, rps, tictactoe, flip, ask, draw```\n"
+                "GAMES and Ideas!!! ```guess, rps, tictactoe, flip, ask, draw, dots```\n"
                 "Maths! ```add sub mul div root square log power```\n"
                 "Fetch pfp of a user by ```pfp <user>```\n"
                 "Translate any language to English! ```tl <sentence to translate>```\n"
