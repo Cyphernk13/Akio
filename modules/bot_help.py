@@ -15,7 +15,7 @@ def setup(bot):
                 "Fetch pfp of a user by ```pfp <user>```\n"
                 "Translate any language to English! ```tl <sentence to translate>```\n"
                 "Calculate love percentage!!! ```love user1 user2```\n"
-                "MUSIC (Not Working) ```play <url or name> | akio queue```\n"
+                "MUSIC ```play <song name> | pause | resume | skip | disconnect | queue | nowplaying | loop | shuffle | remove <number> | volume <0-100>```\n"
                 "kuru~ kuru~ kuru~ kuru~ ```akio kuru```" ), color=discord.Color.random())
         avatar_url = bot.user.avatar.url
         auto.set_thumbnail(url=avatar_url)
