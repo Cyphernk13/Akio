@@ -4,6 +4,10 @@ Akio is a versatile and fun-to-use Discord bot packed with features to bring you
 
 ## Features
 
+### 🤖 AI-Powered
+* **Ask Anything**: Mention Akio or use the `query` command to ask any question.
+* **Contextual Conversations**: Akio remembers the conversation history to provide relevant responses.
+
 ### 🎉 Fun & Interactive
 * **Actions**: Express yourself with a wide range of actions like `hug`, `kiss`, `slap`, `pat`, `bully`, and more!
 * **Echo & Say**: Make the bot repeat your messages.
@@ -25,9 +29,6 @@ Akio is a versatile and fun-to-use Discord bot packed with features to bring you
 * **Looping**: Loop the current track or the entire queue.
 * **Now Playing**: See what's currently playing with a progress bar.
 
-### 🤖 AI-Powered
-* **Ask Anything**: Mention Akio or use the `query` command to ask any question.
-* **Contextual Conversations**: Akio remembers the conversation history to provide relevant responses.
 
 ### 🛠️ Utilities
 * **Help Command**: Get a detailed list of all available commands.
