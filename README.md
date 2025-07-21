@@ -1,71 +1,74 @@
-# Akio - A Cute Discord Bot
+# Akio - Your All-in-One Discord Bot
 
-Meet Akio, a Discord bot that brings fun, interactivity, and utility to your server! 🎉
+Akio is a versatile and fun-to-use Discord bot packed with features to bring your server to life. Whether you want to play games, listen to music, or get help with various tasks, Akio has you covered!
 
-## Help Commands
+## Features
 
-**Prefix:** `akio`
+### 🎉 Fun & Interactive
+* **Actions**: Express yourself with a wide range of actions like `hug`, `kiss`, `slap`, `pat`, `bully`, and more!
+* **Echo & Say**: Make the bot repeat your messages.
+* **Love Calculator**: Calculate the love percentage between two users.
+* **Drawing Ideas**: Get creative with drawing challenges.
+* **Coin Flip**: Flip a coin for a quick decision.
 
-### Main Features
+### 🎮 Games
+* **Rock Paper Scissors**: Play RPS against the bot or another user.
+* **Tic-Tac-Toe**: Enjoy a classic game of Tic-Tac-Toe.
+* **Number Guessing**: Test your luck with a number guessing game.
+* **Dots and Boxes**: A fun and strategic game to play with friends.
 
-1. **Ask Anything**
-   - Command: `akio query <your question here>`
-   - Example: `akio query What's the weather today?`
+### 🎶 Music
+* **Play Music**: Play songs from YouTube by name or URL.
+* **Queue Management**: View and manage the song queue.
+* **Player Controls**: Pause, resume, skip, and stop the music.
+* **Volume Control**: Adjust the music volume to your liking.
+* **Looping**: Loop the current track or the entire queue.
+* **Now Playing**: See what's currently playing with a progress bar.
 
-2. **Fun Actions**
-   - Command: `akio <action> <mention>`
-   - Actions: `hug, kiss, slap, kill, blush, smirk, tickle, roast, kick, shrug, pat, bully, clap, applaud, salute, highfive, think, cheer, wink, laugh, wave, dances, spin, pout`
-   - Example: `akio hug @username`
+### 🤖 AI-Powered
+* **Ask Anything**: Mention Akio or use the `query` command to ask any question.
+* **Contextual Conversations**: Akio remembers the conversation history to provide relevant responses.
 
-3. **Echo & Sing**
-   - Command: `akio echo <sentence to repeat>`
-   - Example: `akio echo I love Discord!`
-
-4. **Games (Under Development)**
-   - Commands: `akio guess, akio rps`
-   - Example: `akio rps`
-
-5. **Math Operations**
-   - Commands: `add, sub, mul, div, root, square, log, power`
-   - Example: `akio add 2 3`
-
-6. **Fetch Profile Picture**
-   - Command: `akio pfp <mention>`
-   - Example: `akio pfp @username`
-
-7. **Fun Command**
-   - Command: `akio kuru`
-   - Example: `akio kuru`
-
-8. **Translate**
-   - Command: `akio tl <sentence to translate>`
-   - Example: `akio tl Bonjour`
-
-9. **Random Ideas & Numbers**
-   - Commands: `akio draw, akio flip, akio ask`
-   - Example: `akio draw`
-
-10. **Love Percentage**
-    - Command: `akio love user1 user2`
-    - Example: `akio love @user1 @user2`
-
-11. **MUSIC (Beta)**
-    - Command: `akio play <url or name>`
-    - Example: `akio play Despacito`
+### 🛠️ Utilities
+* **Help Command**: Get a detailed list of all available commands.
+* **Profile Picture**: Fetch the profile picture of any user.
+* **Translate**: Translate any sentence into English.
+* **Math Operations**: Perform calculations like addition, subtraction, multiplication, division, square root, and exponents.
+* **Anime & Manga Search**: Get details about your favorite anime and manga.
+* **Character Search**: Find information about anime characters.
+* **Top Anime**: Discover the top-rated anime series.
+* **Seasonal Anime**: See what's new in the current anime season.
+* **MyAnimeList User Profiles**: View MAL user profiles and stats.
 
 ## Installation
 
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/Cyphernk13/Akio.git
-   cd akio
-2. Install dependencies:
-   ```sh
-   pip install -r requirements.txt
-3. Run the bot:
-   ```sh
-   python main.py
-4. Create a .env file and modify the fields
-   ```sh
-   GIF= 'Enter your Tenor GIF API Key here'
-   TOKEN = 'Enter your Bot Token here'
+1.  **Clone the repository:**
+    ```sh
+    git clone [https://github.com/cyphernk13/akio.git](https://github.com/cyphernk13/akio.git)
+    cd akio
+    ```
+2.  **Install dependencies:**
+    ```sh
+    pip install -r requirements.txt
+    ```
+3.  **Create a `.env` file and add your bot's token and other API keys:**
+    ```
+    TOKEN=your_discord_bot_token
+    GEMINI_API_KEY=your_gemini_api_key
+    GIF=your_tenor_gif_api_key
+    ```
+4.  **Run the bot:**
+    ```sh
+    python main.py
+    ```
+
+## Usage
+
+* **Prefix**: `akio` or `Akio`
+* **Mention**: `@Akio`
+
+Simply type `akio help` in your server to see the full list of commands.
+
+---
+
+Enjoy using Akio! For any questions or support, feel free to open an issue on the GitHub repository.
