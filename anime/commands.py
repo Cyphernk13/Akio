@@ -114,7 +114,7 @@ def create_character_embed(char: Dict[str, Any]) -> discord.Embed:
     about = truncate_text(char.get('about'), 400)
 
     embed = discord.Embed(
-        title=f"👤 {char.get('name', 'Unknown Character')}",
+        title=f"{char.get('name', 'Unknown Character')}",
         url=char.get('url'),
         description=about,
         color=CHAR_COLOR
