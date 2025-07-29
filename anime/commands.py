@@ -207,8 +207,8 @@ class SearchSelect(discord.ui.Select):
             embed = create_character_embed(full_data)
         else:
             embed = discord.Embed(title="Error", description="Unknown item type.", color=ERROR_COLOR)
-
-        await interaction.message.edit(content=None, embed=embed, view=None)
+        
+        await interaction.message.edit(content=None, embed=embed, view=self.view)
 
 class SearchView(discord.ui.View):
     """A view that holds the SearchSelect menu."""
@@ -220,36 +220,52 @@ class SearchView(discord.ui.View):
     async def on_timeout(self):
         if self.message:
             try:
-                await self.message.edit(view=None)
+                for item in self.children:
+                    item.disabled = True
+                await self.message.edit(view=self)
             except discord.NotFound:
                 pass
 
 # --- Bot Setup ---
 
 def setup(bot):
-    def calculate_relevance_score(item: Dict[str, Any], query: str) -> int:
-        """Calculates a relevance score for a search result to improve sorting."""
-        score = 0
-        query = query.lower()
+    def calculate_relevance_score(item: Dict[str, Any], query: str, item_type: str) -> tuple:
+        """
+        Calculates a relevance score for a search result to improve sorting.
+        Returns a tuple (match_quality, popularity_score) for sorting.
+        """
+        query = query.lower().strip()
         
-        title = (item.get('title', '') or '').lower()
-        title_english = (item.get('title_english', '') or '').lower()
+        # Consolidate all potential names/titles into a single list
+        titles_and_names = []
+        if name := (item.get('name', '') or '').lower():
+            titles_and_names.append(name)
+        if title := (item.get('title', '') or '').lower():
+            titles_and_names.append(title)
+        if title_english := (item.get('title_english', '') or '').lower():
+            titles_and_names.append(title_english)
+        if title_synonyms := item.get('title_synonyms'):
+            titles_and_names.extend([s.lower() for s in title_synonyms])
+
+        # Primary Score: Title/Name Match Quality (higher is better)
+        match_quality = 0
+        if query in titles_and_names:
+            match_quality = 5  # Exact Match
+        elif any(t.startswith(query) for t in titles_and_names):
+            match_quality = 4  # Starts With
+        elif any(query in t for t in titles_and_names):
+            match_quality = 3  # Contains query as a substring
+        elif all(word in ' '.join(titles_and_names) for word in query.split()):
+            match_quality = 2 # All words in query are in title(s)
         
-        # Strong boost for exact matches
-        if query == title or query == title_english:
-            score += 1000
+        # MODIFIED: Secondary Score is now based on item_type
+        popularity_score = 0
+        if item_type == 'character':
+            popularity_score = item.get('favorites', 0) or 0
+        else:  # anime or manga
+            popularity_score = item.get('members', 0) or 0
         
-        # Boost for starting with the query
-        if title.startswith(query) or title_english.startswith(query):
-            score += 500
-            
-        # Add popularity score (favorites are a good metric)
-        score += item.get('favorites', 0)
-        
-        # Add members as a general popularity metric, but weigh it less than favorites
-        score += item.get('members', 0) / 10
-        
-        return score
+        return (match_quality, popularity_score)
 
     async def search_and_display(ctx: commands.Context, query: str, item_type: str):
         """A generic function to handle searching and displaying for any item type."""
@@ -272,8 +288,8 @@ def setup(bot):
             await ctx.send(embed=embed)
             return
 
-        # Sort results based on the custom relevance score
-        results.sort(key=lambda item: calculate_relevance_score(item, query), reverse=True)
+        # MODIFIED: Pass item_type to the scoring function
+        results.sort(key=lambda item: calculate_relevance_score(item, query, item_type), reverse=True)
 
         # Intelligent Filtering to prioritize common types
         preferred_anime_types = ['TV', 'Movie', 'OVA', 'Special', 'ONA']
@@ -334,7 +350,7 @@ def setup(bot):
     async def character(ctx: commands.Context, *, query: str):
         await search_and_display(ctx, query, 'character')
 
-    @bot.hybrid_command(name="topanime", description="Shows the top anime by selected category.")
+    @bot.hybrid_command(name="topanime", aliases=["topa"], description="Shows the top anime by selected category.")
     @app_commands.describe(filter="The category to filter by (e.g., airing, upcoming, favorite).")
     @app_commands.choices(filter=[
         app_commands.Choice(name="Top Airing", value="airing"),
@@ -371,13 +387,28 @@ def setup(bot):
     async def seasonal(ctx, year: Optional[int] = None, season: Optional[str] = None):
         await ctx.typing()
         try:
-            endpoint = "seasons/now" if not year or not season else f"seasons/{year}/{season}"
+            current_date = datetime.now()
+            if year is None:
+                year = current_date.year
+            if season is None:
+                # Determine current season
+                month = current_date.month
+                if 3 <= month <= 5:
+                    season = 'spring'
+                elif 6 <= month <= 8:
+                    season = 'summer'
+                elif 9 <= month <= 11:
+                    season = 'fall'
+                else:
+                    season = 'winter'
+
+            endpoint = f"seasons/{year}/{season}"
             response_data = await ctx.bot.loop.run_in_executor(None, jikan_request, endpoint)
             results = response_data.get('data', [])
             if not results:
                 return await ctx.send("❌ No seasonal anime found!", ephemeral=True)
 
-            title = f"{season.capitalize()} {year}" if year and season else "Current Season Anime"
+            title = f"{season.capitalize()} {year}"
             embed = discord.Embed(title=f"🌸 {title}", color=0x4CAF50)
             
             description = ""
@@ -404,7 +435,7 @@ def setup(bot):
             stats = stats_response.get('data') if stats_response else {}
             
             embed = discord.Embed(
-                title=f"� {profile['username']}'s Profile",
+                title=f"👤 {profile['username']}'s Profile",
                 url=profile["url"],
                 color=USER_COLOR
             )
