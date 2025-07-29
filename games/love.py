@@ -5,7 +5,7 @@ class LoveView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=60)
         
-    @discord.ui.button(label="Re-calculate <:pinkheart:1399583453258977440>", style=discord.ButtonStyle.red)
+    @discord.ui.button(label="Re-calculate", style=discord.ButtonStyle.red)
     async def recalculate(self, interaction: discord.Interaction, button: discord.ui.Button):
         new_percentage = random.randint(1, 100)
         embed = interaction.message.embeds[0]
