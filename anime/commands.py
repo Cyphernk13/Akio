@@ -1,261 +1,438 @@
-# anime/anime_command.py
+# anime/commands.py
 import discord
-from discord import app_commands
 from discord.ext import commands
+from discord import app_commands
 import requests
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 import asyncio
+import textwrap
 
-JIKAN_BASE = "https://api.jikan.moe/v4"
+# --- Constants & Configuration ---
+JIKAN_BASE_URL = "https://api.jikan.moe/v4"
+ANIME_COLOR = 0x2E51A2  # Blue
+MANGA_COLOR = 0xE91E63  # Pink
+CHAR_COLOR = 0x9C27B0   # Purple
+USER_COLOR = 0xFF9800    # Orange
+SUCCESS_COLOR = 0x4CAF50 # Green
+ERROR_COLOR = 0xF44336   # Red
 
-async def fetch_popular_anime(anime_list):
-    """Fetch anime details in parallel and return the most popular one"""
-    async def get_anime_details(anime_id):
-        response = requests.get(f"{JIKAN_BASE}/anime/{anime_id}")
-        return response.json().get('data', {}) if response.status_code == 200 else {}
+# --- Helper Functions ---
 
-    tasks = [get_anime_details(entry['anime']['mal_id']) for entry in anime_list[:5]]
-    results = await asyncio.gather(*tasks)
-    
-    return max(results, key=lambda x: x.get('members', 0), default={})
+def jikan_request(endpoint: str, params: Optional[Dict] = None) -> Dict[str, Any]:
+    """Makes a request to the Jikan API and returns the JSON response."""
+    try:
+        response = requests.get(f"{JIKAN_BASE_URL}/{endpoint}", params=params)
+        response.raise_for_status()  # Raises an HTTPError for bad responses (4xx or 5xx)
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"Jikan API request failed: {e}")
+        return {}
 
-def jikan_request(endpoint: str, params: dict = None):
-    response = requests.get(f"{JIKAN_BASE}/{endpoint}", params=params)
-    response.raise_for_status()
-    return response.json().get("data", [])
+def format_number(number: int) -> str:
+    """Formats a number with commas."""
+    return f"{number:,}" if number else "N/A"
 
-# Anime Search (existing)
-def search_anime(query: str, limit: int = 1):
-    return jikan_request("anime", {"q": query, "limit": limit})
+def truncate_text(text: str, max_length: int) -> str:
+    """Truncates text to a maximum length, adding an ellipsis if needed."""
+    if not text:
+        return "No description available."
+    return textwrap.shorten(text, width=max_length, placeholder="...")
 
-# New Commands Functions
-def get_manga(query: str, limit: int = 1):
-    return jikan_request("manga", {"q": query, "limit": limit})
+# --- Embed Creation Functions ---
 
-async def get_character_data(query: str):
-    # Fetch characters sorted by favorites (most popular first)
-    search_results = jikan_request(
-        "characters",
-        {"q": query, "limit": 1, "order_by": "favorites", "sort": "desc"}
+def create_anime_embed(anime: Dict[str, Any]) -> discord.Embed:
+    """Creates a professional and visually appealing embed for an anime."""
+    title = anime.get('title_english') or anime.get('title', 'Unknown Title')
+    synopsis = truncate_text(anime.get('synopsis'), 400)
+
+    embed = discord.Embed(
+        title=f"📺 {title}",
+        url=anime.get('url'),
+        description=synopsis,
+        color=ANIME_COLOR
     )
-    if not search_results:
-        return None
 
-    char_id = search_results[0]['mal_id']
-    char_data = jikan_request(f"characters/{char_id}/full")
+    if image_url := anime.get('images', {}).get('jpg', {}).get('large_image_url'):
+        embed.set_thumbnail(url=image_url)
 
-    # Determine most popular anime source
-    source = "Unknown"
-    if char_data.get('anime'):
-        popular_anime = await fetch_popular_anime(char_data['anime'])
-        source = popular_anime.get('title', source)
-    elif char_data.get('manga'):
-        source = char_data['manga'][0]['manga']['title']
+    embed.add_field(name="⭐ Score", value=f"**{anime.get('score') or 'N/A'}**" if anime.get('score') else "N/A", inline=True)
+    embed.add_field(name="❤️ Rank", value=f"#{format_number(anime.get('rank'))}" if anime.get('rank') else "N/A", inline=True)
+    embed.add_field(name="👥 Popularity", value=f"#{format_number(anime.get('popularity'))}" if anime.get('popularity') else "N/A", inline=True)
 
-    char_data['source'] = source
-    return char_data
+    embed.add_field(name="🎬 Type", value=anime.get('type') or 'N/A', inline=True)
+    embed.add_field(name="💿 Episodes", value=anime.get('episodes') or 'N/A', inline=True)
+    embed.add_field(name="⏳ Status", value=anime.get('status') or 'N/A', inline=True)
 
-def get_top_anime(type: str = "all", limit: int = 5):
-    return jikan_request(f"top/anime?type={type}&limit={limit}")
+    if studios := anime.get('studios'):
+        studio_names = ', '.join([s['name'] for s in studios])
+        embed.add_field(name="🏢 Studios", value=studio_names, inline=False)
 
-def get_seasonal(year: int = None, season: str = None):
-    endpoint = "seasons/now" if not year else f"seasons/{year}/{season}"
-    return jikan_request(endpoint)
+    if genres := anime.get('genres'):
+        genre_names = ', '.join([g['name'] for g in genres])
+        embed.add_field(name="🎭 Genres", value=genre_names, inline=False)
 
-def get_user(username: str):
-    return jikan_request(f"users/{username}")
+    embed.set_footer(text=f"Aired: {anime.get('aired', {}).get('string', 'N/A')}")
+    return embed
 
-def get_user_stats(username: str):
-    url = f"{JIKAN_BASE}/users/{username}/statistics"
-    response = requests.get(url)
-    response.raise_for_status()
-    return response.json().get("data", {})
+def create_manga_embed(manga: Dict[str, Any]) -> discord.Embed:
+    """Creates a professional and visually appealing embed for a manga."""
+    title = manga.get('title_english') or manga.get('title', 'Unknown Title')
+    synopsis = truncate_text(manga.get('synopsis'), 400)
+
+    embed = discord.Embed(
+        title=f"📖 {title}",
+        url=manga.get('url'),
+        description=synopsis,
+        color=MANGA_COLOR
+    )
+
+    if image_url := manga.get('images', {}).get('jpg', {}).get('large_image_url'):
+        embed.set_thumbnail(url=image_url)
+
+    embed.add_field(name="⭐ Score", value=f"**{manga.get('score') or 'N/A'}**" if manga.get('score') else "N/A", inline=True)
+    embed.add_field(name="❤️ Rank", value=f"#{format_number(manga.get('rank'))}" if manga.get('rank') else "N/A", inline=True)
+    embed.add_field(name="👥 Popularity", value=f"#{format_number(manga.get('popularity'))}" if manga.get('popularity') else "N/A", inline=True)
+
+    embed.add_field(name="📚 Type", value=manga.get('type') or 'N/A', inline=True)
+    embed.add_field(name="⏳ Status", value=manga.get('status') or 'N/A', inline=True)
+    embed.add_field(name="❤️ Favorites", value=format_number(manga.get('favorites')), inline=True)
+
+    if authors := manga.get('authors'):
+        author_names = ', '.join([a['name'] for a in authors])
+        embed.add_field(name="✍️ Authors", value=author_names, inline=False)
+
+    if genres := manga.get('genres'):
+        genre_names = ', '.join([g['name'] for g in genres])
+        embed.add_field(name="🎭 Genres", value=genre_names, inline=False)
+
+    embed.set_footer(text=f"Published: {manga.get('published', {}).get('string', 'N/A')}")
+    return embed
+
+def create_character_embed(char: Dict[str, Any]) -> discord.Embed:
+    """Creates a professional and visually appealing embed for a character."""
+    about = truncate_text(char.get('about'), 400)
+
+    embed = discord.Embed(
+        title=f"👤 {char.get('name', 'Unknown Character')}",
+        url=char.get('url'),
+        description=about,
+        color=CHAR_COLOR
+    )
+
+    if image_url := char.get('images', {}).get('jpg', {}).get('image_url'):
+        embed.set_thumbnail(url=image_url)
+
+    embed.add_field(name="❤️ Favorites", value=format_number(char.get('favorites')), inline=True)
+
+    if nicknames := char.get('nicknames'):
+        embed.add_field(name="Alias", value=', '.join(nicknames), inline=True)
+
+    anime_appearances = char.get('anime', [])
+    if anime_appearances:
+        main_anime = sorted(anime_appearances, key=lambda x: x['anime'].get('popularity', 99999))[0]
+        embed.add_field(name="🎬 Main Anime", value=f"[{main_anime['anime']['title']}]({main_anime['anime']['url']})", inline=False)
+
+    if voice_actors := char.get('voices'):
+        jp_va = next((va for va in voice_actors if va['language'] == 'Japanese'), None)
+        if jp_va:
+            embed.set_footer(
+                text=f"🇯🇵 VA: {jp_va['person']['name']}",
+                icon_url=jp_va['person']['images']['jpg']['image_url']
+            )
+    return embed
+
+# --- UI Components (Select Menu) ---
+
+class SearchSelect(discord.ui.Select):
+    """A select menu for choosing from a list of search results."""
+    def __init__(self, items: List[Dict[str, Any]], item_type: str, original_author: discord.User):
+        self.items = items
+        self.item_type = item_type
+        self.original_author = original_author
+
+        options = []
+        for i, item in enumerate(items[:25]):
+            title = item.get('title', item.get('name', 'Unknown'))
+            description = None
+            if item_type in ['anime', 'manga']:
+                item_type_label = item.get('type', 'N/A')
+                score = item.get('score', 'N/A')
+                description = f"Type: {item_type_label} | Score: {score}"
+            elif item_type == 'character':
+                favorites = format_number(item.get('favorites'))
+                description = f"Favorites: {favorites}"
+
+            options.append(discord.SelectOption(
+                label=truncate_text(title, 100),
+                description=truncate_text(description, 100) if description else None,
+                value=str(i),
+                emoji='🥇' if i == 0 else None
+            ))
+
+        super().__init__(placeholder="Didn't find what you were looking for? Choose here!", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.original_author.id:
+            await interaction.response.send_message("You cannot interact with this menu.", ephemeral=True)
+            return
+
+        selected_index = int(self.values[0])
+        selected_item = self.items[selected_index]
+        mal_id = selected_item['mal_id']
+
+        await interaction.response.defer()
+
+        endpoint_map = {'anime': 'anime', 'manga': 'manga', 'character': 'characters'}
+        item_endpoint = endpoint_map[self.item_type]
+        
+        endpoint = f"{item_endpoint}/{mal_id}/full"
+        full_data_response = jikan_request(endpoint)
+        full_data = full_data_response.get('data') if full_data_response else None
+
+        if not full_data:
+            endpoint = f"{item_endpoint}/{mal_id}"
+            full_data_response = jikan_request(endpoint)
+            full_data = full_data_response.get('data') if full_data_response else None
+
+        if not full_data:
+            await interaction.followup.send("Sorry, I couldn't fetch the details for that selection.", ephemeral=True)
+            return
+
+        if self.item_type == 'anime':
+            embed = create_anime_embed(full_data)
+        elif self.item_type == 'manga':
+            embed = create_manga_embed(full_data)
+        elif self.item_type == 'character':
+            embed = create_character_embed(full_data)
+        else:
+            embed = discord.Embed(title="Error", description="Unknown item type.", color=ERROR_COLOR)
+
+        await interaction.message.edit(content=None, embed=embed, view=None)
+
+class SearchView(discord.ui.View):
+    """A view that holds the SearchSelect menu."""
+    def __init__(self, items: List[Dict[str, Any]], item_type: str, author: discord.User):
+        super().__init__(timeout=120.0)
+        self.message = None
+        self.add_item(SearchSelect(items, item_type, author))
+
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.edit(view=None)
+            except discord.NotFound:
+                pass
+
+# --- Bot Setup ---
 
 def setup(bot):
-    # Existing anime command
-    @bot.hybrid_command(description="Search anime details (e.g., /anime Attack on Titan)")
-    async def anime(ctx, *, query: str):
-        await ctx.typing()
-        try:
-            results = await ctx.bot.loop.run_in_executor(None, search_anime, query, 1)
-            if not results:
-                return await ctx.send("❌ No anime found!", ephemeral=True)
+    def calculate_relevance_score(item: Dict[str, Any], query: str) -> int:
+        """Calculates a relevance score for a search result to improve sorting."""
+        score = 0
+        query = query.lower()
+        
+        title = (item.get('title', '') or '').lower()
+        title_english = (item.get('title_english', '') or '').lower()
+        
+        # Strong boost for exact matches
+        if query == title or query == title_english:
+            score += 1000
+        
+        # Boost for starting with the query
+        if title.startswith(query) or title_english.startswith(query):
+            score += 500
             
-            anime = results[0]
-            # Only first paragraph for description
-            synopsis = anime.get("synopsis", "No synopsis available.").split('\n')[0]
-            embed = discord.Embed(
-                title=anime["title"],
-                url=anime["url"],
-                description=synopsis,
-                color=0x2E51A2
-            )
-            embed.set_thumbnail(url=anime["images"]["jpg"]["image_url"])
-            embed.add_field(name="📺 Type", value=anime.get("type", "N/A"), inline=True)
-            embed.add_field(name="🎬 Episodes", value=anime.get("episodes", "N/A"), inline=True)
-            embed.add_field(name="⭐ Score", value=anime.get("score", "N/A"), inline=True)
-            embed.add_field(name="📅 Aired", value=anime["aired"]["string"], inline=False)
-            embed.set_footer(text=f"Status: {anime['status']} | Rated: {anime['rating']}")
-            await ctx.send(embed=embed)
-        except Exception as e:
-            await ctx.send(f"❌ Error: {str(e)}", ephemeral=True)
+        # Add popularity score (favorites are a good metric)
+        score += item.get('favorites', 0)
+        
+        # Add members as a general popularity metric, but weigh it less than favorites
+        score += item.get('members', 0) / 10
+        
+        return score
 
-    # New: Manga Search Command
-    @bot.hybrid_command(description="Search manga details (e.g., /manga Berserk)")
-    async def manga(ctx, *, query: str):
-        await ctx.typing()
-        try:
-            results = jikan_request("manga", {"q": query, "limit": 1})
-            if not results:
-                return await ctx.send("❌ No manga found!", ephemeral=True)
-            
-            manga = results[0]
-            is_publishing = manga.get("status", "").lower() == "publishing"
-            
-            # Improved publishing status handling
-            chapters = manga.get('chapters', 0) or 0
-            volumes = manga.get('volumes', 0) or 0
-            
-            chapters_display = "Ongoing" if is_publishing and chapters <= 0 else chapters or "N/A"
-            volumes_display = "Ongoing" if is_publishing and volumes <= 0 else volumes or "N/A"
+    async def search_and_display(ctx: commands.Context, query: str, item_type: str):
+        """A generic function to handle searching and displaying for any item type."""
+        await ctx.defer()
 
-            embed = discord.Embed(
-                title=manga["title"],
-                url=manga["url"],
-                description=manga.get("synopsis", "No synopsis available.").split('\n')[0],
-                color=0xE91E63
-            )
-            embed.set_thumbnail(url=manga["images"]["jpg"]["image_url"])
-            
-            fields = [
-                ("📖 Type", manga.get("type", "N/A")),
-                ("📚 Status", manga.get("status", "N/A")),
-                ("📑 Chapters", chapters_display),
-                ("📚 Volumes", volumes_display),
-                ("⭐ Score", manga.get("score", "N/A")),
-                ("❤️ Favorites", f"{manga.get('favorites', 0):,}")
-            ]
-            
-            for name, value in fields:
-                embed.add_field(name=name, value=value, inline=True)
-            
-            await ctx.send(embed=embed)
-        except Exception as e:
-            await ctx.send(f"❌ Error: {str(e)}", ephemeral=True)
-            
-    # New: Character Search Command
-    @bot.hybrid_command(description="Search character details (e.g., /character Vegeta)")
-    async def char(ctx, *, query: str):
-        await ctx.typing()
-        try:
-            char = await get_character_data(query)
-            if not char:
-                return await ctx.send("❌ No character found!", ephemeral=True)
-            
-            embed = discord.Embed(
-                title=char["name"],
-                url=char["url"],
-                description=char.get("about", "No information available.").split('\n''\n')[1],
-                color=0x9C27B0
-            )
-            embed.set_image(url=char["images"]["jpg"]["image_url"])
-            embed.add_field(name="❤️ Favorites", value=f"{char.get('favorites', 0):,}", inline=True)
-            embed.add_field(name="📚 Source", value=char['source'], inline=True)
-            await ctx.send(embed=embed)
-        except Exception as e:
-            await ctx.send(f"❌ Error: {str(e)}", ephemeral=True)
+        endpoint_map = {'anime': 'anime', 'manga': 'manga', 'character': 'characters'}
+        endpoint = endpoint_map[item_type]
+        
+        params = {"q": query, "limit": 25}
+        
+        response_data = jikan_request(endpoint, params)
+        results = response_data.get('data', [])
 
-    # New: Top Anime Command
-    @bot.hybrid_command(description="Show top anime (e.g., /topanime tv)")
-    async def top(ctx, type: Optional[str] = "all"):
-        await ctx.typing()
-        try:
-            results = await ctx.bot.loop.run_in_executor(None, get_top_anime, type, 5)
-            if not results:
-                return await ctx.send("❌ No results found!", ephemeral=True)
-            
+        if not results:
             embed = discord.Embed(
-                title=f"Top {type.upper()} Anime",
-                color=0x2196F3
+                title="❌ No Results Found",
+                description=f"I couldn't find any {item_type} matching your query `{query}`.",
+                color=ERROR_COLOR
             )
-            for idx, anime in enumerate(results[:5], 1):
-                embed.add_field(
-                    name=f"{idx}. {anime['title']}",
-                    value=f"⭐ {anime['score']} | 🎬 {anime['type']} | 📺 {anime['episodes']} eps",
-                    inline=False
-                )
-            embed.set_thumbnail(url=results[0]["images"]["jpg"]["image_url"])
             await ctx.send(embed=embed)
-        except Exception as e:
-            await ctx.send(f"❌ Error: {str(e)}", ephemeral=True)
+            return
 
-    # New: Seasonal Anime Command
+        # Sort results based on the custom relevance score
+        results.sort(key=lambda item: calculate_relevance_score(item, query), reverse=True)
+
+        # Intelligent Filtering to prioritize common types
+        preferred_anime_types = ['TV', 'Movie', 'OVA', 'Special', 'ONA']
+        preferred_manga_types = ['Manga', 'Novel', 'Light Novel', 'Manhwa', 'Manhua', 'One-shot']
+        
+        filtered_results = []
+        if item_type == 'anime':
+            filtered_results = [r for r in results if r.get('type') in preferred_anime_types]
+        elif item_type == 'manga':
+            filtered_results = [r for r in results if r.get('type') in preferred_manga_types]
+        else: # For characters, no type filtering is needed
+            filtered_results = results
+
+        display_results = filtered_results if filtered_results else results
+        
+        if not display_results:
+            embed = discord.Embed(
+                title="❌ No Relevant Results Found",
+                description=f"I found some items for `{query}`, but none were of a standard type (e.g., TV, Movie, Manga).",
+                color=ERROR_COLOR
+            )
+            await ctx.send(embed=embed)
+            return
+
+        top_result = display_results[0]
+        
+        mal_id = top_result['mal_id']
+        full_data_response = jikan_request(f"{endpoint}/{mal_id}/full")
+        top_result_full = full_data_response.get('data') or top_result
+            
+        if item_type == 'anime':
+            embed = create_anime_embed(top_result_full)
+        elif item_type == 'manga':
+            embed = create_manga_embed(top_result_full)
+        elif item_type == 'character':
+            embed = create_character_embed(top_result_full)
+        else:
+            await ctx.send("An internal error occurred.")
+            return
+
+        view = SearchView(display_results, item_type, ctx.author) if len(display_results) > 1 else None
+        message = await ctx.send(embed=embed, view=view)
+        if view:
+            view.message = message
+
+    @bot.hybrid_command(name="anime", description="Search for an anime with detailed info.")
+    @app_commands.describe(query="The name of the anime you want to search for.")
+    async def anime(ctx: commands.Context, *, query: str):
+        await search_and_display(ctx, query, 'anime')
+
+    @bot.hybrid_command(name="manga", description="Search for a manga with detailed info.")
+    @app_commands.describe(query="The name of the manga you want to search for.")
+    async def manga(ctx: commands.Context, *, query: str):
+        await search_and_display(ctx, query, 'manga')
+
+    @bot.hybrid_command(name="character", aliases=["char"], description="Search for an anime or manga character.")
+    @app_commands.describe(query="The name of the character you want to search for.")
+    async def character(ctx: commands.Context, *, query: str):
+        await search_and_display(ctx, query, 'character')
+
+    @bot.hybrid_command(name="topanime", description="Shows the top anime by selected category.")
+    @app_commands.describe(filter="The category to filter by (e.g., airing, upcoming, favorite).")
+    @app_commands.choices(filter=[
+        app_commands.Choice(name="Top Airing", value="airing"),
+        app_commands.Choice(name="Top Upcoming", value="upcoming"),
+        app_commands.Choice(name="Top TV Series", value="tv"),
+        app_commands.Choice(name="Top Movies", value="movie"),
+        app_commands.Choice(name="Most Popular", value="bypopularity"),
+        app_commands.Choice(name="Most Favorited", value="favorite"),
+    ])
+    async def topanime(ctx: commands.Context, filter: str = "bypopularity"):
+        await ctx.defer()
+        response_data = jikan_request("top/anime", {"filter": filter, "limit": 10})
+        results = response_data.get('data', [])
+        if not results:
+            return await ctx.send(embed=discord.Embed(description="Could not fetch top anime.", color=ERROR_COLOR))
+
+        embed = discord.Embed(
+            title=f"🏆 Top 10 Anime - {filter.replace('_', ' ').title()}",
+            color=SUCCESS_COLOR
+        )
+        description = ""
+        for i, anime_data in enumerate(results, 1):
+            title = anime_data.get('title_english') or anime_data.get('title')
+            score = anime_data.get('score', 'N/A')
+            description += f"**{i}. [{truncate_text(title, 40)}]({anime_data['url']})** - ⭐ {score}\n"
+
+        embed.description = description
+        if results[0].get('images', {}).get('jpg', {}).get('image_url'):
+            embed.set_thumbnail(url=results[0]['images']['jpg']['image_url'])
+
+        await ctx.send(embed=embed)
+
     @bot.hybrid_command(description="Show seasonal anime (e.g., /seasonal 2023 summer)")
     async def seasonal(ctx, year: Optional[int] = None, season: Optional[str] = None):
         await ctx.typing()
         try:
-            results = await ctx.bot.loop.run_in_executor(None, get_seasonal, year, season)
+            endpoint = "seasons/now" if not year or not season else f"seasons/{year}/{season}"
+            response_data = await ctx.bot.loop.run_in_executor(None, jikan_request, endpoint)
+            results = response_data.get('data', [])
             if not results:
                 return await ctx.send("❌ No seasonal anime found!", ephemeral=True)
+
+            title = f"{season.capitalize()} {year}" if year and season else "Current Season Anime"
+            embed = discord.Embed(title=f"🌸 {title}", color=0x4CAF50)
             
-            embed = discord.Embed(
-                title=f"{season.capitalize()} {year}" if year else "Current Season",
-                color=0x4CAF50
-            )
-            for anime in results[:5]:
-                embed.add_field(
-                    name=anime["title"],
-                    value=f"📅 {anime['aired']['string']}\n"
-                          f"⭐ {anime.get('score', 'N/A')} | 🏢 {anime['studios'][0]['name']}",
-                    inline=False
-                )
+            description = ""
+            for anime in results[:10]:
+                anime_title = anime.get('title_english') or anime.get('title')
+                score = anime.get('score', 'N/A')
+                description += f"• **[{truncate_text(anime_title, 50)}]({anime['url']})** - ⭐ {score}\n"
+            
+            embed.description = description
             await ctx.send(embed=embed)
         except Exception as e:
             await ctx.send(f"❌ Error: {str(e)}", ephemeral=True)
 
-    # New: User Profile Command
-    @bot.hybrid_command(description="Get MAL user profile (e.g., /user john)")
+    @bot.hybrid_command(description="Get MyAnimeList user profile and stats.")
     async def user(ctx, *, username: str):
-        await ctx.typing()
+        await ctx.defer()
         try:
-            # Fetch profile and stats separately
-            profile = await ctx.bot.loop.run_in_executor(None, get_user, username)
-            stats = await ctx.bot.loop.run_in_executor(None, get_user_stats, username)
-
+            profile_response = jikan_request(f"users/{username}")
+            profile = profile_response.get('data')
             if not profile:
-                return await ctx.send("❌ User not found!", ephemeral=True)
-
+                return await ctx.send(f"❌ User '{username}' not found!", ephemeral=True)
+            
+            stats_response = jikan_request(f"users/{username}/statistics")
+            stats = stats_response.get('data') if stats_response else {}
+            
             embed = discord.Embed(
-                title=f"🐾 {profile['username']}'s Profile",
+                title=f"� {profile['username']}'s Profile",
                 url=profile["url"],
-                color=0xFF9800
+                color=USER_COLOR
             )
-
-            # Set thumbnail
-            if profile.get("images") and profile["images"].get("jpg"):
+            if profile.get("images", {}).get("jpg", {}).get("image_url"):
                 embed.set_thumbnail(url=profile["images"]["jpg"]["image_url"])
 
-            # Add joined date
-            if profile.get("joined"):
-                joined_date = datetime.fromisoformat(profile["joined"]).strftime("%b %d, %Y")
-                embed.add_field(name="Joined", value=joined_date, inline=False)
+            if joined := profile.get("joined"):
+                joined_date = datetime.fromisoformat(joined).strftime("%b %d, %Y")
+                embed.add_field(name="Joined", value=joined_date, inline=True)
+            if last_online := profile.get("last_online"):
+                last_online_date = datetime.fromisoformat(last_online).strftime("%b %d, %Y")
+                embed.add_field(name="Last Online", value=last_online_date, inline=True)
+            
+            if anime_stats := stats.get("anime"):
+                anime_field = (
+                    f"**Watching:** {format_number(anime_stats.get('watching'))}\n"
+                    f"**Completed:** {format_number(anime_stats.get('completed'))}\n"
+                    f"**Mean Score:** {anime_stats.get('mean_score', 0):.2f}"
+                )
+                embed.add_field(name="🎬 Anime Stats", value=anime_field, inline=False)
 
-            # Add Anime stats (Watching/Completed)
-            anime_stats = stats.get("anime", {})
-            anime_field = (
-                f"Watching: {anime_stats.get('watching', 0)}\n"
-                f"Completed: {anime_stats.get('completed', 0)}"
-            )
-            embed.add_field(name="🎬 Anime", value=anime_field, inline=False)
-
-            # Add Manga stats (Reading/Completed)
-            manga_stats = stats.get("manga", {})
-            manga_field = (
-                f"Reading: {manga_stats.get('reading', 0)}\n"
-                f"Completed: {manga_stats.get('completed', 0)}"
-            )
-            embed.add_field(name="📚 Manga", value=manga_field, inline=False)
+            if manga_stats := stats.get("manga"):
+                manga_field = (
+                    f"**Reading:** {format_number(manga_stats.get('reading'))}\n"
+                    f"**Completed:** {format_number(manga_stats.get('completed'))}\n"
+                    f"**Mean Score:** {manga_stats.get('mean_score', 0):.2f}"
+                )
+                embed.add_field(name="📚 Manga Stats", value=manga_field, inline=False)
 
             await ctx.send(embed=embed)
         except Exception as e:
