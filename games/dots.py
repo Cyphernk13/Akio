@@ -45,7 +45,7 @@ class DotsAndBoxesButton(discord.ui.Button):
         self.is_drawn = True
         self.style = discord.ButtonStyle.primary
         self.disabled = True
-        self.label = "✅"
+        self.label = "<a:verify:1399579399107379271>"
         
         # Update the game state
         if self.line_type == 'h':

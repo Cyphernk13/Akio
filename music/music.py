@@ -138,7 +138,7 @@ def setup(bot):
         requester = track.requester if hasattr(track, 'requester') else bot.user
 
         embed = discord.Embed(
-            title="🎶 Now Playing",
+            title="<a:Milk10:1399578671941156996> Now Playing",
             description=f"**[{track.title}]({track.uri})**\nby {track.author}",
             color=discord.Color.green()
         )
@@ -232,7 +232,7 @@ def setup(bot):
             track_to_add.requester = ctx.author
             queue.append(track_to_add)
             embed = discord.Embed(
-                description=f"✅ Added **[{track_to_add.title}]({track_to_add.uri})** to the queue.",
+                description=f"<a:verify:1399579399107379271> Added **[{track_to_add.title}]({track_to_add.uri})** to the queue.",
                 color=discord.Color.og_blurple()
             )
             await ctx.send(embed=embed)
@@ -259,7 +259,7 @@ def setup(bot):
         for i, track in enumerate(queue[start_index:end_index], start=start_index + 1):
             queue_list += f"`{i}.` `[{format_duration(track.duration // 1000)}]` {track.title}\n"
         
-        embed = discord.Embed(title="🎶 Music Queue", description=queue_list, color=discord.Color.blue())
+        embed = discord.Embed(title="<a:Milk10:1399578671941156996> Music Queue", description=queue_list, color=discord.Color.blue())
         embed.set_footer(text=f"Page {page}/{pages} | Total songs: {len(queue)}")
         
         player: wavelink.Player = ctx.voice_client
@@ -284,7 +284,7 @@ def setup(bot):
         
         requester = track.requester if hasattr(track, 'requester') else ctx.author
         
-        embed = discord.Embed(title="🎶 Now Playing", description=f"**[{track.title}]({track.uri})** by {track.author}", color=discord.Color.green())
+        embed = discord.Embed(title="<a:Milk10:1399578671941156996> Now Playing", description=f"**[{track.title}]({track.uri})** by {track.author}", color=discord.Color.green())
         embed.set_thumbnail(url=track.thumbnail)
         embed.add_field(name="Progress", value=progress_bar, inline=False)
         embed.set_footer(text=f"Requested by {requester.display_name}", icon_url=requester.avatar.url)
@@ -327,7 +327,7 @@ def setup(bot):
             return await ctx.send(embed=discord.Embed(description=f"Invalid index. Please provide a number between 1 and {len(queue)}.", color=discord.Color.red()))
         
         removed_track = queue.pop(index - 1)
-        embed = discord.Embed(description=f"🗑️ Removed **{removed_track.title}** from the queue.", color=discord.Color.green())
+        embed = discord.Embed(description=f"<:Sage_Trash:1399580044531339356> Removed **{removed_track.title}** from the queue.", color=discord.Color.green())
         await ctx.send(embed=embed)
 
 
@@ -341,7 +341,7 @@ def setup(bot):
         loop_modes.pop(ctx.guild.id, None)
         await player.disconnect()
         
-        embed = discord.Embed(description="👋 Disconnected and cleared the queue. See you next time!", color=discord.Color.blue())
+        embed = discord.Embed(description="<:MomijiWave:1399580630207168606> Disconnected and cleared the queue. See you next time!", color=discord.Color.blue())
         await ctx.send(embed=embed)
 
     @bot.hybrid_command(name="volume", description="Set the player volume (0-100)")

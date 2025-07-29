@@ -7,7 +7,7 @@ from modules.gif_utils import get_top_8_gifs
 def setup(bot):
     @bot.hybrid_command(description="Say hello to the bot!")
     async def hello(ctx):
-        await ctx.send(f'Hello, {ctx.author.name}!')
+        await ctx.send(f'Hello, {ctx.author.name}! <:GawrGuraWaveBackgroundless:1399581860836802652>')
     
     @bot.hybrid_command(description="Translate a sentence to English")
     async def tl(ctx, *, sentence: str):

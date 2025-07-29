@@ -48,7 +48,7 @@ class RPSView(discord.ui.View):
             return
 
         self.choices[interaction.user.id] = choice
-        await interaction.response.send_message(f"✅ You chose {choice}!", ephemeral=True)
+        await interaction.response.send_message(f"<a:verify:1399579399107379271> You chose {choice}!", ephemeral=True)
 
         if len(self.choices) == len(self.players):
             await self.resolve_game(interaction)
@@ -113,7 +113,7 @@ class RPSView(discord.ui.View):
         }
         if choice1 == choice2:
             return "🤝 It's a tie!"
-        return outcomes.get((choice1, choice2), "❌ You lose!") if (choice1, choice2) in outcomes else outcomes.get((choice2, choice1), "✅ You win!")
+        return outcomes.get((choice1, choice2), "❌ You lose!") if (choice1, choice2) in outcomes else outcomes.get((choice2, choice1), "<a:verify:1399579399107379271> You win!")
 
 def setup(bot):
     @bot.hybrid_command(description="Play rock-paper-scissors against the bot or another user")
