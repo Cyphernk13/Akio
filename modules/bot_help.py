@@ -47,13 +47,15 @@ COMMANDS_DATA = {
         "label": "Games & Fun",
         "description": "Commands for playing games and having fun.",
         "content": (
+            "`rr`: Play Russian Roulette.\n"
             "`rps [user]`: Play Rock, Paper, Scissors.\n"
             "`tictactoe [user]`: Play Tic-Tac-Toe.\n"
             "`guess`: Guess the number.\n"
-            "`dots <user>`: Play Dots and Boxes.\n"
+            "`dots [user]`: Play Dots and Boxes.\n"
             "`flip`: Flip a coin.\n"
+            "`8ball [question]`: Ask the magic 8-ball.\n"
             "`draw`: Get a random drawing idea.\n"
-            "`love <user1> <user2>`: Calculate love %."
+            "`love [user1] [user2]`: Calculate love %."
         )
     },
     "actions": {

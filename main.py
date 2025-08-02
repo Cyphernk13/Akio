@@ -3,7 +3,7 @@ from scripts.setup import bot
 import discord
 import os
 from modules import commands, maths, bot_help
-from games import rps, tictactoe, love, guess, flip, draw, challenge, dots, roulette
+from games import rps, tictactoe, love, guess, flip, draw, challenge, dots, roulette, magicball
 from ai import gemini
 from music import music
 from anime.commands import setup as setup_anime
@@ -23,6 +23,7 @@ draw.setup(bot)
 challenge.setup(bot)
 dots.setup(bot)
 gemini.setup(bot)
+magicball.setup(bot)
 setup_anime(bot)
 
 @bot.event
