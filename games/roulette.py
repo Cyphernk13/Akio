@@ -8,11 +8,14 @@ active_games = {}
 
 # A curated list of direct GIF links to be displayed on player elimination.
 death_gifs = [
-    "https://media.tenor.com/gR8d340A1-sAAAAC/shitwaifu-zankyou.gif",
-    "https://media.tenor.com/5r2sA02Dk2AAAAAC/jjk-jujutsu-kaisen.gif",
-    "https://media.tenor.com/K89I0FN2VzAAAAAC/homelander-homelander-laser.gif",
-    "https://media.tenor.com/K5YI0nv62RIAAAAC/ponzu-hunter-x-hunter.gif",
-    "https://media.tenor.com/G50gHcs1t2sAAAAC/nanami-nanami-kento.gif"
+    "https://tenor.com/view/l-death-note-death-shocking-sad-anime-gif-21247730",
+    "https://tenor.com/view/one-piece-one-piece-3d2y-3d2y-marineford-arc-marineford-gif-6737885940702044175",
+    "https://tenor.com/view/shitwaifu-zankyou-gif-7287725",
+    "https://tenor.com/view/nanami-nanami-kento-nanami-death-death-jujutsu-kaisen-gif-9282695421132909706",
+    "https://tenor.com/view/toji-toji-fushiguro-death-bloody-died-standing-gif-769732690373477383",
+    "https://tenor.com/view/anime-gif-19232078",
+    "https://tenor.com/view/anime-haikyuu-volleyball-gif-18279727",
+    "https://tenor.com/view/anime-ikuyo-death-kita-death-bocchi-the-rock-ikuyo-gif-5829296764920437849",
 ]
 
 # --- Game View (After Lobby) ---
