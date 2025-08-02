@@ -11,6 +11,7 @@ COMMANDS_DATA = {
         "content": (
             "`query <question>`: Ask me anything!\n"
             "`@Akio <question>`: Mention me to chat.\n"
+            "`reset`: Reset the conversation.\n"
             "`say <message>`: Make me say something.\n"
             "`echo <message>`: I'll repeat your message."
         )
