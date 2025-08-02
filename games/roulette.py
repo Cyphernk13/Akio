@@ -2,21 +2,23 @@ import discord
 from discord.ext import commands
 import random
 import asyncio
+from modules.gif_utils import get_gif_by_id
 
 # Dictionary to store active games or lobbies, keyed by channel ID
 active_games = {}
 
-# A curated list of direct GIF links to be displayed on player elimination.
-death_gifs = [
-    "https://tenor.com/view/l-death-note-death-shocking-sad-anime-gif-21247730",
-    "https://tenor.com/view/one-piece-one-piece-3d2y-3d2y-marineford-arc-marineford-gif-6737885940702044175",
-    "https://tenor.com/view/shitwaifu-zankyou-gif-7287725",
-    "https://tenor.com/view/nanami-nanami-kento-nanami-death-death-jujutsu-kaisen-gif-9282695421132909706",
-    "https://tenor.com/view/toji-toji-fushiguro-death-bloody-died-standing-gif-769732690373477383",
-    "https://tenor.com/view/anime-gif-19232078",
-    "https://tenor.com/view/anime-haikyuu-volleyball-gif-18279727",
-    "https://tenor.com/view/anime-ikuyo-death-kita-death-bocchi-the-rock-ikuyo-gif-5829296764920437849",
+# A list of GIF IDs instead of URLs
+death_gif_ids = [
+    "21247730",                # L death note
+    "6737885940702044175",     # One piece marineford
+    "7287725",                 # zankyou
+    "9282695421132909706",     # nanami
+    "769732690373477383",      # toji
+    "19232078",                # anime girl dies
+    "18279727",                # haikyuu
+    "5829296764920437849"      # kita death
 ]
+
 
 # --- Game View (After Lobby) ---
 class RussianRouletteView(discord.ui.View):
@@ -32,7 +34,10 @@ class RussianRouletteView(discord.ui.View):
     def update_button_label(self):
         """Updates the button to show whose turn it is."""
         if not self.game_state.get('players'):
+            if pull_trigger_btn := discord.utils.get(self.children, label=lambda l: l.startswith("Pull Trigger")):
+                pull_trigger_btn.disabled = True
             return
+
         current_player = self.game_state['players'][self.game_state['current_player_index']]
         button = self.children[0]
         button.label = f"Pull Trigger ({current_player.display_name})"
@@ -72,18 +77,21 @@ class RussianRouletteView(discord.ui.View):
             embed.color = discord.Color.dark_red()
             embed.description = f"**BANG!** 💥\n\nThe revolver fires. {current_player.mention} has been eliminated!"
             
-            # Set the image from our curated list
-            embed.set_image(url=random.choice(death_gifs))
+            chosen_id = random.choice(death_gif_ids)
+            gif_url = get_gif_by_id(chosen_id)
+            if gif_url:
+                embed.set_image(url=gif_url)
             
             game['players'].pop(game['current_player_index'])
             
+            # -------------------------- MODIFIED SECTION START --------------------------
             if len(game['players']) < 2:
                 # --- GAME OVER ---
-                winner_text = f"\n\n**{game['players'][0].mention} is the last one standing and wins!** 🎉" if game['players'] else "\n\nEveryone has been eliminated. No one wins."
-                embed.description += winner_text
-                
-                player_list = ", ".join([p.mention for p in game['players']])
-                embed.add_field(name="Players Remaining", value=player_list if player_list else "None", inline=False)
+                # Determine the winner message text
+                winner_text = f"**{game['players'][0].mention} is the last one standing and wins!** 🎉" if game['players'] else "Everyone has been eliminated. No one wins."
+
+                player_list = ", ".join([p.mention for p in game['players']]) if game['players'] else "None"
+                embed.add_field(name="Players Remaining", value=player_list, inline=False)
                 embed.set_footer(text=f"Chamber {game['turn_number']}/{game['chambers']}")
 
                 # Disable all buttons and stop the view
@@ -91,9 +99,15 @@ class RussianRouletteView(discord.ui.View):
                     child.disabled = True
                 self.stop()
                 
+                # Edit the original game embed to show the final state
                 await interaction.response.edit_message(embed=embed, view=self)
+                
+                # Send the winner message as a new, separate message
+                await interaction.followup.send(winner_text)
+
                 if channel_id in active_games:
                     del active_games[channel_id]
+            # --------------------------- MODIFIED SECTION END ---------------------------
 
             else:
                 # --- GAME CONTINUES ---
@@ -125,7 +139,8 @@ class RussianRouletteView(discord.ui.View):
             self.update_button_label()
             await interaction.response.edit_message(embed=embed, view=self)
 
-# --- Lobby View ---
+# --- (The LobbyView and setup function remain the same as your original file) ---
+
 class LobbyView(discord.ui.View):
     """
     A view for the game lobby, allowing players to join or the host to start.
@@ -229,4 +244,4 @@ def setup(bot):
         )
         message = await ctx.send(embed=embed, view=lobby_view)
         lobby_view.message = message
-        active_games[ctx.channel.id] = lobby_view # Store the view to manage the lobby state
+        active_games[ctx.channel.id] = lobby_view
