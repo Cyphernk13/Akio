@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from scripts.setup import bot
 import discord
 import os
-from modules import commands, maths, bot_help
+from modules import commands, maths, bot_help, cat
 from games import rps, tictactoe, love, guess, flip, draw, challenge, dots, roulette, magicball
 from ai import gemini
 from music import music
@@ -12,6 +12,7 @@ load_dotenv()
 commands.setup(bot)
 maths.setup(bot)
 music.setup(bot)
+cat.setup(bot)
 bot_help.setup(bot)
 rps.setup(bot)
 tictactoe.setup(bot)

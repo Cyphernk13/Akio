@@ -47,6 +47,7 @@ COMMANDS_DATA = {
         "label": "Games & Fun",
         "description": "Commands for playing games and having fun.",
         "content": (
+            "`cat`: Get a random cat picture.\n"
             "`rr`: Play Russian Roulette.\n"
             "`rps [user]`: Play Rock, Paper, Scissors.\n"
             "`tictactoe [user]`: Play Tic-Tac-Toe.\n"
