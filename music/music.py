@@ -6,7 +6,7 @@ import asyncio
 from datetime import timedelta
 import re
 
-# Import the custom voice client from its new file
+# Import the custom voice client from its dedicated file
 from .lavalink_client import LavalinkVoiceClient
 
 URL_REGEX = re.compile(r'https?://(?:www\.)?.+')
@@ -96,18 +96,38 @@ class TrackSelect(discord.ui.Select):
         self.view.stop()
         await interaction.response.defer()
 
-def setup(bot):
-    @lavalink.listener(lavalink.TrackStartEvent)
-    async def on_track_start(event: lavalink.TrackStartEvent):
-        player = event.player
-        guild = bot.get_guild(player.guild_id)
-        if not guild: return
-        
-        channel = bot.get_channel(player.fetch('channel'))
-        if not channel: return
+def setup(bot: commands.Bot):
 
-        track = event.track
-        requester = guild.get_member(player.fetch('requester'))
+    # --- New Central Playback Function ---
+    async def start_playback(ctx: commands.Context, player: lavalink.DefaultPlayer):
+        """Handles popping tracks from the queue and sending 'Now Playing' messages."""
+        # Delete the old "Now Playing" message if it exists
+        old_message_id = player.fetch('message_id')
+        if old_message_id:
+            try:
+                old_message = await ctx.channel.fetch_message(old_message_id)
+                await old_message.delete()
+            except discord.NotFound:
+                pass
+
+        if not player.queue and player.loop != 1:
+            await asyncio.sleep(120)
+            if player.is_connected and not player.is_playing:
+                await ctx.voice_client.disconnect(force=True)
+            return
+
+        track = None
+        if player.loop == 1 and player.current:
+            track = player.current
+        else:
+            track = player.queue.pop(0)
+
+        if player.loop == 2: # Loop queue
+            player.queue.append(track)
+        
+        await player.play(track)
+        
+        requester = ctx.guild.get_member(track.requester)
         embed = discord.Embed(
             title="<a:Milk10:1399578671941156996> Now Playing",
             description=f"**[{track.title}]({track.uri})**\nby {track.author}",
@@ -116,17 +136,27 @@ def setup(bot):
         if track.artwork_url:
             embed.set_thumbnail(url=track.artwork_url)
         embed.add_field(name="Duration", value=format_duration(track.duration))
-        embed.set_footer(text=f"Requested by {requester.display_name}", icon_url=requester.avatar.url)
+        if requester:
+            embed.set_footer(text=f"Requested by {requester.display_name}", icon_url=requester.avatar.url)
 
-        message = await channel.send(embed=embed, view=PlayerControls(player))
+        message = await ctx.channel.send(embed=embed, view=PlayerControls(player))
         player.store('message_id', message.id)
 
-    @lavalink.listener(lavalink.QueueEndEvent)
-    async def on_queue_end(event: lavalink.QueueEndEvent):
-        guild = bot.get_guild(event.player.guild_id)
-        await asyncio.sleep(120)
-        if guild and guild.voice_client and not event.player.is_playing:
-            await guild.voice_client.disconnect(force=True)
+    @lavalink.listener(lavalink.TrackEndEvent)
+    async def on_track_end(event: lavalink.TrackEndEvent):
+        player = event.player
+        guild = bot.get_guild(player.guild_id)
+        channel = bot.get_channel(player.fetch('channel'))
+
+        if guild and channel:
+            # Create a dummy context to pass to the playback function
+            class DummyCtx:
+                def __init__(self, guild, channel, voice_client):
+                    self.guild = guild
+                    self.channel = channel
+                    self.voice_client = voice_client
+            
+            await start_playback(DummyCtx(guild, channel, guild.voice_client), player)
     
     @bot.hybrid_command(name="play", description="Play a song or add to the queue")
     async def play(ctx: commands.Context, *, query: str):
@@ -134,6 +164,7 @@ def setup(bot):
             return await ctx.send("You must be in a voice channel.", ephemeral=True)
 
         player = bot.lavalink.player_manager.create(ctx.guild.id)
+        player.store('channel', ctx.channel.id)
         
         if not ctx.voice_client:
             await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
@@ -154,21 +185,38 @@ def setup(bot):
         if results.load_type == lavalink.LoadType.PLAYLIST:
             tracks = results.tracks
             for track in tracks:
-                player.add(track=track, requester=ctx.author.id)
+                track.requester = ctx.author.id
+                player.add(track=track)
             embed = discord.Embed(title="📜 Playlist Added", description=f"Added **{len(tracks)}** songs from **{results.playlist_info.name}**.", color=discord.Color.purple())
             await ctx.send(embed=embed)
         else:
-            track = results.tracks[0]
-            player.add(track=track, requester=ctx.author.id)
-            embed = discord.Embed(description=f"<a:verify:1399579399107379271> Added **[{track.title}]({track.uri})** to the queue.", color=discord.Color.og_blurple())
+            track_to_add = None
+            if len(results.tracks) > 1 and results.load_type == lavalink.LoadType.SEARCH:
+                view = discord.ui.View(timeout=60)
+                select_menu = TrackSelect(results.tracks)
+                view.add_item(select_menu)
+                msg = await ctx.send("🔎 **Found multiple tracks, please choose one:**", view=view)
+                await view.wait()
+                
+                try:
+                    await msg.delete()
+                except discord.NotFound:
+                    pass
+                
+                track_to_add = select_menu.chosen_track
+                if not track_to_add:
+                    return await ctx.send(embed=discord.Embed(description="Selection timed out.", color=discord.Color.orange()))
+            else:
+                track_to_add = results.tracks[0]
+
+            track_to_add.requester = ctx.author.id
+            player.add(track=track_to_add)
+            embed = discord.Embed(description=f"<a:verify:1399579399107379271> Added **[{track_to_add.title}]({track_to_add.uri})** to the queue.", color=discord.Color.og_blurple())
             await ctx.send(embed=embed)
 
         if not player.is_playing:
-            await player.play()
-            player.store('requester', ctx.author.id)
-            player.store('channel', ctx.channel.id)
+            await start_playback(ctx, player)
 
-    # ... (The rest of your music commands should be here, they don't need changes)
     @bot.hybrid_command(name="queue", description="Shows the current music queue")
     async def queue(ctx: commands.Context, page: int = 1):
         player = bot.lavalink.player_manager.get(ctx.guild.id)
@@ -211,14 +259,14 @@ def setup(bot):
         progress = int((position / duration) * 20) if duration > 0 else 0
         progress_bar = f"[`{format_duration(position)}`] {'▬' * progress}🔵{'▬' * (20 - progress)} [`{format_duration(duration)}`]"
         
-        requester_id = player.fetch('requester')
-        requester = ctx.guild.get_member(requester_id) if requester_id else bot.user
+        requester = ctx.guild.get_member(track.requester)
 
         embed = discord.Embed(title="<a:Milk10:1399578671941156996> Now Playing", description=f"**[{track.title}]({track.uri})** by {track.author}", color=discord.Color.green())
         if track.artwork_url:
             embed.set_thumbnail(url=track.artwork_url)
         embed.add_field(name="Progress", value=progress_bar, inline=False)
-        embed.set_footer(text=f"Requested by {requester.display_name if requester else 'Unknown'}", icon_url=requester.avatar.url if requester else bot.user.avatar.url)
+        if requester:
+            embed.set_footer(text=f"Requested by {requester.display_name}", icon_url=requester.avatar.url)
         
         await ctx.send(embed=embed, view=PlayerControls(player))
 
@@ -257,7 +305,7 @@ def setup(bot):
             return await ctx.send(embed=discord.Embed(description=f"Invalid index. Please provide a number between 1 and {len(player.queue)}.", color=discord.Color.red()))
         
         removed_track = player.queue.pop(index - 1)
-        embed = discord.Embed(description=f"<:Sage_Trash:1399580044531339356> Removed **{removed_track.title}** from the queue.", color=discord.Color.green())
+        embed = discord.Embed(description=f"<:Sage_Trash:1399578671941156996> Removed **{removed_track.title}** from the queue.", color=discord.Color.green())
         await ctx.send(embed=embed)
 
 
@@ -308,4 +356,3 @@ def setup(bot):
             await ctx.send("▶️ Resumed.")
         else:
             await ctx.send("Music is not paused.")
-

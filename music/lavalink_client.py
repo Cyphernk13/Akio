@@ -45,8 +45,7 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
         if player:
             player.queue.clear()
             await player.stop()
+            await self.client.lavalink.player_manager.destroy(self.channel.guild.id)
 
         await self.channel.guild.change_voice_state(channel=None)
-        # Destroy the player to ensure states are cleared.
-        await self.client.lavalink.player_manager.destroy(self.channel.guild.id)
         self.cleanup()
