@@ -99,20 +99,35 @@ class TrackSelect(discord.ui.Select):
 def setup(bot: commands.Bot):
 
     # --- New 'Now Playing' Sender ---
+    async def delete_old_np_message(player: lavalink.DefaultPlayer):
+        """Safely delete the previous 'Now Playing' message if it exists."""
+        old_message_id = player.fetch('message_id')
+        channel_id = player.fetch('channel')
+        if not old_message_id or not channel_id:
+            return
+        try:
+            channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
+            old_message = await channel.fetch_message(old_message_id)
+            await old_message.delete()
+        except (discord.NotFound, discord.Forbidden, AttributeError):
+            pass
+        finally:
+            player.store('message_id', None)
+
     async def send_now_playing_embed(player: lavalink.DefaultPlayer):
         """Creates and sends the 'Now Playing' embed."""
-        channel = bot.get_channel(player.fetch('channel'))
-        if not channel:
+        # Ensure we have a channel to send in
+        channel_id = player.fetch('channel')
+        if not channel_id:
             return
 
-        # Delete the old "Now Playing" message if it exists
-        old_message_id = player.fetch('message_id')
-        if old_message_id:
-            try:
-                old_message = await channel.fetch_message(old_message_id)
-                await old_message.delete()
-            except (discord.NotFound, discord.Forbidden):
-                pass
+        # Clean up any previous NP message
+        await delete_old_np_message(player)
+
+        try:
+            channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
+        except (discord.NotFound, discord.Forbidden):
+            return
 
         track = player.current
         if not track:
@@ -124,11 +139,12 @@ def setup(bot: commands.Bot):
             description=f"**[{track.title}]({track.uri})**\nby {track.author}",
             color=discord.Color.green()
         )
-        if track.artwork_url:
+        if getattr(track, 'artwork_url', None):
             embed.set_thumbnail(url=track.artwork_url)
         embed.add_field(name="Duration", value=format_duration(track.duration))
         if requester:
-            embed.set_footer(text=f"Requested by {requester.display_name}", icon_url=requester.avatar.url)
+            avatar_url = requester.display_avatar.url
+            embed.set_footer(text=f"Requested by {requester.display_name}", icon_url=avatar_url)
 
         message = await channel.send(embed=embed, view=PlayerControls(player))
         player.store('message_id', message.id)
@@ -142,6 +158,8 @@ def setup(bot: commands.Bot):
     @lavalink.listener(lavalink.TrackEndEvent)
     async def on_track_end(event: lavalink.TrackEndEvent):
         player = event.player
+        # Clean up the old NP message when a track ends
+        await delete_old_np_message(player)
         # If loop is off and the queue is empty, schedule a disconnect
         if player.loop == 0 and not player.queue:
             await asyncio.sleep(120)

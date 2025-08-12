@@ -33,7 +33,11 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
         """
         Connects to the voice channel.
         """
-        self.player.store('channel', self.channel.id)
+        # Store the voice channel id under a distinct key to avoid overwriting the text channel id
+        try:
+            self.player.store('voice_channel_id', self.channel.id)
+        except Exception:
+            pass
         await self.channel.guild.change_voice_state(channel=self.channel, self_mute=self_mute, self_deaf=self_deaf)
 
     async def disconnect(self, *, force: bool = False) -> None:
