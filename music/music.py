@@ -98,36 +98,27 @@ class TrackSelect(discord.ui.Select):
 
 def setup(bot: commands.Bot):
 
-    # --- New Central Playback Function ---
-    async def start_playback(ctx: commands.Context, player: lavalink.DefaultPlayer):
-        """Handles popping tracks from the queue and sending 'Now Playing' messages."""
+    # --- New 'Now Playing' Sender ---
+    async def send_now_playing_embed(player: lavalink.DefaultPlayer):
+        """Creates and sends the 'Now Playing' embed."""
+        channel = bot.get_channel(player.fetch('channel'))
+        if not channel:
+            return
+
         # Delete the old "Now Playing" message if it exists
         old_message_id = player.fetch('message_id')
         if old_message_id:
             try:
-                old_message = await ctx.channel.fetch_message(old_message_id)
+                old_message = await channel.fetch_message(old_message_id)
                 await old_message.delete()
-            except discord.NotFound:
+            except (discord.NotFound, discord.Forbidden):
                 pass
 
-        if not player.queue and player.loop != 1:
-            await asyncio.sleep(120)
-            if player.is_connected and not player.is_playing:
-                await ctx.voice_client.disconnect(force=True)
+        track = player.current
+        if not track:
             return
 
-        track = None
-        if player.loop == 1 and player.current:
-            track = player.current
-        else:
-            track = player.queue.pop(0)
-
-        if player.loop == 2: # Loop queue
-            player.queue.append(track)
-        
-        await player.play(track)
-        
-        requester = ctx.guild.get_member(track.requester)
+        requester = channel.guild.get_member(track.requester)
         embed = discord.Embed(
             title="<a:Milk10:1399578671941156996> Now Playing",
             description=f"**[{track.title}]({track.uri})**\nby {track.author}",
@@ -139,25 +130,26 @@ def setup(bot: commands.Bot):
         if requester:
             embed.set_footer(text=f"Requested by {requester.display_name}", icon_url=requester.avatar.url)
 
-        message = await ctx.channel.send(embed=embed, view=PlayerControls(player))
+        message = await channel.send(embed=embed, view=PlayerControls(player))
         player.store('message_id', message.id)
 
+    # --- Use TrackStartEvent for 'Now Playing' messages ---
+    @lavalink.listener(lavalink.TrackStartEvent)
+    async def on_track_start(event: lavalink.TrackStartEvent):
+        await send_now_playing_embed(event.player)
+
+    # --- Use TrackEndEvent for queue logic and cleanup ---
     @lavalink.listener(lavalink.TrackEndEvent)
     async def on_track_end(event: lavalink.TrackEndEvent):
         player = event.player
-        guild = bot.get_guild(player.guild_id)
-        channel = bot.get_channel(player.fetch('channel'))
+        # If loop is off and the queue is empty, schedule a disconnect
+        if player.loop == 0 and not player.queue:
+            await asyncio.sleep(120)
+            if player.is_connected and not player.is_playing:
+                guild = bot.get_guild(player.guild_id)
+                if guild and guild.voice_client:
+                    await guild.voice_client.disconnect(force=True)
 
-        if guild and channel:
-            # Create a dummy context to pass to the playback function
-            class DummyCtx:
-                def __init__(self, guild, channel, voice_client):
-                    self.guild = guild
-                    self.channel = channel
-                    self.voice_client = voice_client
-            
-            await start_playback(DummyCtx(guild, channel, guild.voice_client), player)
-    
     @bot.hybrid_command(name="play", description="Play a song or add to the queue")
     async def play(ctx: commands.Context, *, query: str):
         if not ctx.author.voice or not ctx.author.voice.channel:
@@ -215,7 +207,7 @@ def setup(bot: commands.Bot):
             await ctx.send(embed=embed)
 
         if not player.is_playing:
-            await start_playback(ctx, player)
+            await player.play(player.queue.pop(0))
 
     @bot.hybrid_command(name="queue", description="Shows the current music queue")
     async def queue(ctx: commands.Context, page: int = 1):
