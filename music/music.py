@@ -99,56 +99,113 @@ class TrackSelect(discord.ui.Select):
 def setup(bot: commands.Bot):
 
     # --- New 'Now Playing' Sender ---
-    async def send_now_playing_embed(player: lavalink.DefaultPlayer):
-        """Creates and sends the 'Now Playing' embed."""
-        channel = bot.get_channel(player.fetch('channel'))
-        if not channel:
-            return
-
-        # Delete the old "Now Playing" message if it exists
+    async def delete_old_np_message(player: lavalink.DefaultPlayer):
+        """Safely delete the previous 'Now Playing' message if it exists."""
         old_message_id = player.fetch('message_id')
-        if old_message_id:
-            try:
-                old_message = await channel.fetch_message(old_message_id)
-                await old_message.delete()
-            except (discord.NotFound, discord.Forbidden):
-                pass
+        channel_id = player.fetch('channel')
+        if not old_message_id or not channel_id:
+            return
+        try:
+            channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
+            old_message = await channel.fetch_message(old_message_id)
+            await old_message.delete()
+        except (discord.NotFound, discord.Forbidden, AttributeError):
+            pass
+        finally:
+            player.store('message_id', None)
 
-        track = player.current
-        if not track:
+    async def send_now_playing_embed(player: lavalink.DefaultPlayer, event_track: lavalink.AudioTrack | None = None):
+        """Creates and sends the 'Now Playing' embed."""
+        # Ensure we have a channel to send in
+        channel_id = player.fetch('channel')
+        if not channel_id:
+            print(f"[Music] NP aborted: no text channel stored for guild {getattr(player, 'guild_id', 'unknown')}")
             return
 
-        requester = channel.guild.get_member(track.requester)
+        # Clean up any previous NP message
+        await delete_old_np_message(player)
+
+        try:
+            channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
+        except (discord.NotFound, discord.Forbidden) as e:
+            print(f"[Music] NP aborted: cannot access channel {channel_id}: {e}")
+            return
+
+        track = event_track or player.current
+        if not track:
+            print(f"[Music] NP aborted: no current track for guild {channel.guild.id}; player.is_playing={player.is_playing} queue_len={len(player.queue)}")
+            return
+
+        requester = channel.guild.get_member(getattr(track, 'requester', 0))
         embed = discord.Embed(
             title="<a:Milk10:1399578671941156996> Now Playing",
             description=f"**[{track.title}]({track.uri})**\nby {track.author}",
             color=discord.Color.green()
         )
-        if track.artwork_url:
+        if getattr(track, 'artwork_url', None):
             embed.set_thumbnail(url=track.artwork_url)
         embed.add_field(name="Duration", value=format_duration(track.duration))
         if requester:
-            embed.set_footer(text=f"Requested by {requester.display_name}", icon_url=requester.avatar.url)
+            avatar_url = requester.display_avatar.url
+            embed.set_footer(text=f"Requested by {requester.display_name}", icon_url=avatar_url)
 
-        message = await channel.send(embed=embed, view=PlayerControls(player))
-        player.store('message_id', message.id)
+        try:
+            message = await channel.send(embed=embed, view=PlayerControls(player))
+            player.store('message_id', message.id)
+            print(f"[Music] NP sent: guild={channel.guild.id}, channel={channel.id}, message_id={message.id}, track={track.title}")
+        except Exception as e:
+            # Log the failure to help diagnose in case the channel is invalid or missing perms
+            print(f"Failed to send Now Playing embed in guild {channel.guild.id} channel {channel.id}: {e}")
 
     # --- Use TrackStartEvent for 'Now Playing' messages ---
-    @lavalink.listener(lavalink.TrackStartEvent)
-    async def on_track_start(event: lavalink.TrackStartEvent):
-        await send_now_playing_embed(event.player)
+    async def lavalink_event_hook(event):
+        event_name = type(event).__name__
+        # Track Start
+        if event_name == 'TrackStartEvent':
+            player = getattr(event, 'player', None)
+            if not player:
+                return
+            print(f"[Music] TrackStartEvent received: guild={player.guild_id}, track_id={getattr(getattr(event, 'track', None), 'identifier', 'unknown')} title={getattr(getattr(event, 'track', None), 'title', 'unknown')}")
+            await asyncio.sleep(0.25)
+            track = getattr(event, 'track', None)
+            print(f"[Music] After delay: player.current is {'present' if player.current else 'missing'}; event.track is {'present' if track else 'missing'}")
+            await send_now_playing_embed(player, track)
+            return
 
-    # --- Use TrackEndEvent for queue logic and cleanup ---
-    @lavalink.listener(lavalink.TrackEndEvent)
-    async def on_track_end(event: lavalink.TrackEndEvent):
-        player = event.player
-        # If loop is off and the queue is empty, schedule a disconnect
-        if player.loop == 0 and not player.queue:
-            await asyncio.sleep(120)
-            if player.is_connected and not player.is_playing:
-                guild = bot.get_guild(player.guild_id)
-                if guild and guild.voice_client:
-                    await guild.voice_client.disconnect(force=True)
+        # Track End
+        if event_name == 'TrackEndEvent':
+            player = getattr(event, 'player', None)
+            if not player:
+                return
+            reason = str(getattr(event, 'reason', 'unknown')).lower()
+            print(f"[Music] TrackEndEvent: guild={player.guild_id}, reason={reason}, queue_len={len(player.queue)} current={'present' if player.current else 'missing'}")
+            await delete_old_np_message(player)
+            # Only auto-advance on natural finishes
+            if reason == 'finished' and player.loop == 0:
+                if player.queue:
+                    try:
+                        next_track = player.queue[0]
+                        print(f"[Music] Auto-advancing to next track: id={getattr(next_track, 'identifier', 'unknown')} title={getattr(next_track, 'title', 'unknown')}")
+                        await player.play(player.queue.pop(0))
+                    except Exception as e:
+                        print(f"[Music] Failed to auto-play next track: {e}")
+                else:
+                    print(f"[Music] Queue empty; scheduling disconnect if idle")
+                    await asyncio.sleep(120)
+                    if player.is_connected and not player.is_playing:
+                        try:
+                            guild = bot.get_guild(player.guild_id)
+                            if guild and guild.voice_client:
+                                await guild.voice_client.disconnect(force=True)
+                        except Exception:
+                            pass
+
+    # Register a single event hook that filters by event type
+    try:
+        bot.lavalink.add_event_hook(lavalink_event_hook)
+        print("[Music] Registered lavalink event hook")
+    except Exception as e:
+        print(f"[Music] Failed to register lavalink event hook: {e}")
 
     @bot.hybrid_command(name="play", description="Play a song or add to the queue")
     async def play(ctx: commands.Context, *, query: str):
@@ -157,6 +214,10 @@ def setup(bot: commands.Bot):
 
         player = bot.lavalink.player_manager.create(ctx.guild.id)
         player.store('channel', ctx.channel.id)
+        try:
+            print(f"[Music] Stored text channel {ctx.channel.id} for guild {ctx.guild.id}")
+        except Exception:
+            pass
         
         if not ctx.voice_client:
             await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
@@ -208,6 +269,13 @@ def setup(bot: commands.Bot):
 
         if not player.is_playing:
             await player.play(player.queue.pop(0))
+
+            async def maybe_send_np():
+                await asyncio.sleep(1.0)
+                # Only post NP if the listener hasn't already sent it
+                if not player.fetch('message_id'):
+                    await send_now_playing_embed(player)
+            asyncio.create_task(maybe_send_np())
 
     @bot.hybrid_command(name="queue", description="Shows the current music queue")
     async def queue(ctx: commands.Context, page: int = 1):
