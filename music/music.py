@@ -133,7 +133,7 @@ def setup(bot: commands.Bot):
 
         track = event_track or player.current
         if not track:
-            print(f"[Music] NP aborted: no current track for guild {channel.guild.id}")
+            print(f"[Music] NP aborted: no current track for guild {channel.guild.id}; player.is_playing={player.is_playing} queue_len={len(player.queue)}")
             return
 
         requester = channel.guild.get_member(getattr(track, 'requester', 0))
@@ -159,25 +159,32 @@ def setup(bot: commands.Bot):
     # --- Use TrackStartEvent for 'Now Playing' messages ---
     @lavalink.listener(lavalink.events.TrackStartEvent)
     async def on_track_start(event: lavalink.events.TrackStartEvent):
+        print(f"[Music] TrackStartEvent received: guild={event.player.guild_id}, track_id={getattr(event.track, 'identifier', 'unknown')}")
         # Small delay to ensure player.current is populated
-        await asyncio.sleep(0.15)
+        await asyncio.sleep(0.2)
         track = getattr(event, 'track', None)
+        print(f"[Music] After delay: player.current is {'present' if event.player.current else 'missing'}; event.track is {'present' if track else 'missing'}")
         await send_now_playing_embed(event.player, track)
 
     # --- Use TrackEndEvent for queue logic and cleanup ---
     @lavalink.listener(lavalink.events.TrackEndEvent)
     async def on_track_end(event: lavalink.events.TrackEndEvent):
         player = event.player
+        reason = getattr(event, 'reason', 'unknown')
+        print(f"[Music] TrackEndEvent: guild={player.guild_id}, reason={reason}, queue_len={len(player.queue)}")
         # Clean up the old NP message when a track ends
         await delete_old_np_message(player)
         # Auto-advance to the next track if available and loop is off
         if player.loop == 0 and player.queue:
             try:
+                next_track = player.queue[0]
+                print(f"[Music] Auto-advancing to next track: id={getattr(next_track, 'identifier', 'unknown')} title={getattr(next_track, 'title', 'unknown')}")
                 await player.play(player.queue.pop(0))
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[Music] Failed to auto-play next track: {e}")
         # If loop is off and the queue is empty, schedule a disconnect
         elif player.loop == 0 and not player.queue:
+            print(f"[Music] Queue empty; scheduling disconnect if idle")
             await asyncio.sleep(120)
             if player.is_connected and not player.is_playing:
                 try:
