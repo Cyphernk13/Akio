@@ -177,26 +177,28 @@ def setup(bot: commands.Bot):
             player = getattr(event, 'player', None)
             if not player:
                 return
-            reason = getattr(event, 'reason', 'unknown')
+            reason = str(getattr(event, 'reason', 'unknown')).lower()
             print(f"[Music] TrackEndEvent: guild={player.guild_id}, reason={reason}, queue_len={len(player.queue)} current={'present' if player.current else 'missing'}")
             await delete_old_np_message(player)
-            if player.loop == 0 and player.queue:
-                try:
-                    next_track = player.queue[0]
-                    print(f"[Music] Auto-advancing to next track: id={getattr(next_track, 'identifier', 'unknown')} title={getattr(next_track, 'title', 'unknown')}")
-                    await player.play(player.queue.pop(0))
-                except Exception as e:
-                    print(f"[Music] Failed to auto-play next track: {e}")
-            elif player.loop == 0 and not player.queue:
-                print(f"[Music] Queue empty; scheduling disconnect if idle")
-                await asyncio.sleep(120)
-                if player.is_connected and not player.is_playing:
+            # Only auto-advance on natural finishes
+            if reason == 'finished' and player.loop == 0:
+                if player.queue:
                     try:
-                        guild = bot.get_guild(player.guild_id)
-                        if guild and guild.voice_client:
-                            await guild.voice_client.disconnect(force=True)
-                    except Exception:
-                        pass
+                        next_track = player.queue[0]
+                        print(f"[Music] Auto-advancing to next track: id={getattr(next_track, 'identifier', 'unknown')} title={getattr(next_track, 'title', 'unknown')}")
+                        await player.play(player.queue.pop(0))
+                    except Exception as e:
+                        print(f"[Music] Failed to auto-play next track: {e}")
+                else:
+                    print(f"[Music] Queue empty; scheduling disconnect if idle")
+                    await asyncio.sleep(120)
+                    if player.is_connected and not player.is_playing:
+                        try:
+                            guild = bot.get_guild(player.guild_id)
+                            if guild and guild.voice_client:
+                                await guild.voice_client.disconnect(force=True)
+                        except Exception:
+                            pass
 
     # Register a single event hook that filters by event type
     try:
