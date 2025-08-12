@@ -152,26 +152,27 @@ def setup(bot: commands.Bot):
         try:
             message = await channel.send(embed=embed, view=PlayerControls(player))
             player.store('message_id', message.id)
+            print(f"[Music] NP sent: guild={channel.guild.id}, channel={channel.id}, message_id={message.id}, track={track.title}")
         except Exception as e:
             # Log the failure to help diagnose in case the channel is invalid or missing perms
             print(f"Failed to send Now Playing embed in guild {channel.guild.id} channel {channel.id}: {e}")
 
     # --- Use TrackStartEvent for 'Now Playing' messages ---
-    @lavalink.listener(lavalink.events.TrackStartEvent)
-    async def on_track_start(event: lavalink.events.TrackStartEvent):
-        print(f"[Music] TrackStartEvent received: guild={event.player.guild_id}, track_id={getattr(event.track, 'identifier', 'unknown')}")
+    @lavalink.listener(lavalink.TrackStartEvent)
+    async def on_track_start(event: lavalink.TrackStartEvent):
+        print(f"[Music] TrackStartEvent received: guild={event.player.guild_id}, track_id={getattr(event.track, 'identifier', 'unknown')} title={getattr(event.track, 'title', 'unknown')}")
         # Small delay to ensure player.current is populated
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.3)
         track = getattr(event, 'track', None)
         print(f"[Music] After delay: player.current is {'present' if event.player.current else 'missing'}; event.track is {'present' if track else 'missing'}")
         await send_now_playing_embed(event.player, track)
 
     # --- Use TrackEndEvent for queue logic and cleanup ---
-    @lavalink.listener(lavalink.events.TrackEndEvent)
-    async def on_track_end(event: lavalink.events.TrackEndEvent):
+    @lavalink.listener(lavalink.TrackEndEvent)
+    async def on_track_end(event: lavalink.TrackEndEvent):
         player = event.player
         reason = getattr(event, 'reason', 'unknown')
-        print(f"[Music] TrackEndEvent: guild={player.guild_id}, reason={reason}, queue_len={len(player.queue)}")
+        print(f"[Music] TrackEndEvent: guild={player.guild_id}, reason={reason}, queue_len={len(player.queue)} current={'present' if player.current else 'missing'}")
         # Clean up the old NP message when a track ends
         await delete_old_np_message(player)
         # Auto-advance to the next track if available and loop is off
