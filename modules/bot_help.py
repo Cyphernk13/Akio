@@ -75,6 +75,7 @@ COMMANDS_DATA = {
         "description": "Helpful utility commands.",
         "content": (
             "`pfp [user]`: Fetch a user's profile picture.\n"
+            "`dict <word>`: Get the definition of a word.\n"
             "`tl <sentence>`: Translate text to English.\n"
             "`math <operation>`: e.g., `add`, `sub`, `mul`, `div`..."
         )
