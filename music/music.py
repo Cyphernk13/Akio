@@ -170,8 +170,14 @@ def setup(bot: commands.Bot):
         player = event.player
         # Clean up the old NP message when a track ends
         await delete_old_np_message(player)
+        # Auto-advance to the next track if available and loop is off
+        if player.loop == 0 and player.queue:
+            try:
+                await player.play(player.queue.pop(0))
+            except Exception:
+                pass
         # If loop is off and the queue is empty, schedule a disconnect
-        if player.loop == 0 and not player.queue:
+        elif player.loop == 0 and not player.queue:
             await asyncio.sleep(120)
             if player.is_connected and not player.is_playing:
                 try:
