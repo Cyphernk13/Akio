@@ -114,11 +114,12 @@ def setup(bot: commands.Bot):
         finally:
             player.store('message_id', None)
 
-    async def send_now_playing_embed(player: lavalink.DefaultPlayer):
+    async def send_now_playing_embed(player: lavalink.DefaultPlayer, event_track: lavalink.AudioTrack | None = None):
         """Creates and sends the 'Now Playing' embed."""
         # Ensure we have a channel to send in
         channel_id = player.fetch('channel')
         if not channel_id:
+            print(f"[Music] NP aborted: no text channel stored for guild {getattr(player, 'guild_id', 'unknown')}")
             return
 
         # Clean up any previous NP message
@@ -126,14 +127,16 @@ def setup(bot: commands.Bot):
 
         try:
             channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
-        except (discord.NotFound, discord.Forbidden):
+        except (discord.NotFound, discord.Forbidden) as e:
+            print(f"[Music] NP aborted: cannot access channel {channel_id}: {e}")
             return
 
-        track = player.current
+        track = event_track or player.current
         if not track:
+            print(f"[Music] NP aborted: no current track for guild {channel.guild.id}")
             return
 
-        requester = channel.guild.get_member(track.requester)
+        requester = channel.guild.get_member(getattr(track, 'requester', 0))
         embed = discord.Embed(
             title="<a:Milk10:1399578671941156996> Now Playing",
             description=f"**[{track.title}]({track.uri})**\nby {track.author}",
@@ -146,13 +149,22 @@ def setup(bot: commands.Bot):
             avatar_url = requester.display_avatar.url
             embed.set_footer(text=f"Requested by {requester.display_name}", icon_url=avatar_url)
 
-        message = await channel.send(embed=embed, view=PlayerControls(player))
-        player.store('message_id', message.id)
+        try:
+            message = await channel.send(embed=embed, view=PlayerControls(player))
+            player.store('message_id', message.id)
+        except Exception as e:
+            # Log the failure to help diagnose in case the channel is invalid or missing perms
+            print(f"Failed to send Now Playing embed in guild {channel.guild.id} channel {channel.id}: {e}")
 
     # --- Use TrackStartEvent for 'Now Playing' messages ---
     @lavalink.listener(lavalink.TrackStartEvent)
     async def on_track_start(event: lavalink.TrackStartEvent):
-        await send_now_playing_embed(event.player)
+        try:
+            track = getattr(event, 'track', None)
+            print(f"[Music] TrackStartEvent: guild={event.player.guild_id} track={(track.title if track else 'unknown')} ")
+        except Exception:
+            pass
+        await send_now_playing_embed(event.player, getattr(event, 'track', None))
 
     # --- Use TrackEndEvent for queue logic and cleanup ---
     @lavalink.listener(lavalink.TrackEndEvent)
@@ -168,6 +180,13 @@ def setup(bot: commands.Bot):
                 if guild and guild.voice_client:
                     await guild.voice_client.disconnect(force=True)
 
+    # Explicitly register handlers with the Lavalink client to ensure delivery
+    try:
+        bot.lavalink.add_event_hook(on_track_start)
+        bot.lavalink.add_event_hook(on_track_end)
+    except Exception:
+        pass
+
     @bot.hybrid_command(name="play", description="Play a song or add to the queue")
     async def play(ctx: commands.Context, *, query: str):
         if not ctx.author.voice or not ctx.author.voice.channel:
@@ -175,6 +194,10 @@ def setup(bot: commands.Bot):
 
         player = bot.lavalink.player_manager.create(ctx.guild.id)
         player.store('channel', ctx.channel.id)
+        try:
+            print(f"[Music] Stored text channel {ctx.channel.id} for guild {ctx.guild.id}")
+        except Exception:
+            pass
         
         if not ctx.voice_client:
             await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
@@ -226,6 +249,12 @@ def setup(bot: commands.Bot):
 
         if not player.is_playing:
             await player.play(player.queue.pop(0))
+
+            async def maybe_send_np():
+                await asyncio.sleep(1.0)
+                # Unconditionally attempt to post NP as a fallback in case events don't fire
+                await send_now_playing_embed(player)
+            asyncio.create_task(maybe_send_np())
 
     @bot.hybrid_command(name="queue", description="Shows the current music queue")
     async def queue(ctx: commands.Context, page: int = 1):
