@@ -158,43 +158,52 @@ def setup(bot: commands.Bot):
             print(f"Failed to send Now Playing embed in guild {channel.guild.id} channel {channel.id}: {e}")
 
     # --- Use TrackStartEvent for 'Now Playing' messages ---
-    @lavalink.listener(lavalink.TrackStartEvent)
-    async def on_track_start(event: lavalink.TrackStartEvent):
-        print(f"[Music] TrackStartEvent received: guild={event.player.guild_id}, track_id={getattr(event.track, 'identifier', 'unknown')} title={getattr(event.track, 'title', 'unknown')}")
-        # Small delay to ensure player.current is populated
-        await asyncio.sleep(0.3)
-        track = getattr(event, 'track', None)
-        print(f"[Music] After delay: player.current is {'present' if event.player.current else 'missing'}; event.track is {'present' if track else 'missing'}")
-        await send_now_playing_embed(event.player, track)
+    async def lavalink_event_hook(event):
+        event_name = type(event).__name__
+        # Track Start
+        if event_name == 'TrackStartEvent':
+            player = getattr(event, 'player', None)
+            if not player:
+                return
+            print(f"[Music] TrackStartEvent received: guild={player.guild_id}, track_id={getattr(getattr(event, 'track', None), 'identifier', 'unknown')} title={getattr(getattr(event, 'track', None), 'title', 'unknown')}")
+            await asyncio.sleep(0.25)
+            track = getattr(event, 'track', None)
+            print(f"[Music] After delay: player.current is {'present' if player.current else 'missing'}; event.track is {'present' if track else 'missing'}")
+            await send_now_playing_embed(player, track)
+            return
 
-    # --- Use TrackEndEvent for queue logic and cleanup ---
-    @lavalink.listener(lavalink.TrackEndEvent)
-    async def on_track_end(event: lavalink.TrackEndEvent):
-        player = event.player
-        reason = getattr(event, 'reason', 'unknown')
-        print(f"[Music] TrackEndEvent: guild={player.guild_id}, reason={reason}, queue_len={len(player.queue)} current={'present' if player.current else 'missing'}")
-        # Clean up the old NP message when a track ends
-        await delete_old_np_message(player)
-        # Auto-advance to the next track if available and loop is off
-        if player.loop == 0 and player.queue:
-            try:
-                next_track = player.queue[0]
-                print(f"[Music] Auto-advancing to next track: id={getattr(next_track, 'identifier', 'unknown')} title={getattr(next_track, 'title', 'unknown')}")
-                await player.play(player.queue.pop(0))
-            except Exception as e:
-                print(f"[Music] Failed to auto-play next track: {e}")
-        # If loop is off and the queue is empty, schedule a disconnect
-        elif player.loop == 0 and not player.queue:
-            print(f"[Music] Queue empty; scheduling disconnect if idle")
-            await asyncio.sleep(120)
-            if player.is_connected and not player.is_playing:
+        # Track End
+        if event_name == 'TrackEndEvent':
+            player = getattr(event, 'player', None)
+            if not player:
+                return
+            reason = getattr(event, 'reason', 'unknown')
+            print(f"[Music] TrackEndEvent: guild={player.guild_id}, reason={reason}, queue_len={len(player.queue)} current={'present' if player.current else 'missing'}")
+            await delete_old_np_message(player)
+            if player.loop == 0 and player.queue:
                 try:
-                    guild = bot.get_guild(player.guild_id)
-                    if guild and guild.voice_client:
-                        await guild.voice_client.disconnect(force=True)
-                except Exception:
-                    pass
+                    next_track = player.queue[0]
+                    print(f"[Music] Auto-advancing to next track: id={getattr(next_track, 'identifier', 'unknown')} title={getattr(next_track, 'title', 'unknown')}")
+                    await player.play(player.queue.pop(0))
+                except Exception as e:
+                    print(f"[Music] Failed to auto-play next track: {e}")
+            elif player.loop == 0 and not player.queue:
+                print(f"[Music] Queue empty; scheduling disconnect if idle")
+                await asyncio.sleep(120)
+                if player.is_connected and not player.is_playing:
+                    try:
+                        guild = bot.get_guild(player.guild_id)
+                        if guild and guild.voice_client:
+                            await guild.voice_client.disconnect(force=True)
+                    except Exception:
+                        pass
 
+    # Register a single event hook that filters by event type
+    try:
+        bot.lavalink.add_event_hook(lavalink_event_hook)
+        print("[Music] Registered lavalink event hook")
+    except Exception as e:
+        print(f"[Music] Failed to register lavalink event hook: {e}")
 
     @bot.hybrid_command(name="play", description="Play a song or add to the queue")
     async def play(ctx: commands.Context, *, query: str):
