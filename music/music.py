@@ -159,16 +159,24 @@ def setup(bot: commands.Bot):
     # --- Use TrackStartEvent for 'Now Playing' messages ---
     @lavalink.listener(lavalink.TrackStartEvent)
     async def on_track_start(event: lavalink.TrackStartEvent):
-        try:
-            track = getattr(event, 'track', None)
-            print(f"[Music] TrackStartEvent: guild={event.player.guild_id} track={(track.title if track else 'unknown')} ")
-        except Exception:
-            pass
-        await send_now_playing_embed(event.player, getattr(event, 'track', None))
+        # Only handle actual TrackStartEvent instances
+        if not isinstance(event, lavalink.events.TrackStartEvent):
+            return
+        # Deduplicate per track using a key
+        track = getattr(event, 'track', None)
+        if track:
+            last_track_id = event.player.fetch('last_np_track_identifier')
+            if last_track_id == track.identifier:
+                return
+            event.player.store('last_np_track_identifier', track.identifier)
+        await send_now_playing_embed(event.player, track)
 
     # --- Use TrackEndEvent for queue logic and cleanup ---
     @lavalink.listener(lavalink.TrackEndEvent)
     async def on_track_end(event: lavalink.TrackEndEvent):
+        # Only handle actual TrackEndEvent instances
+        if not isinstance(event, lavalink.events.TrackEndEvent):
+            return
         player = event.player
         # Clean up the old NP message when a track ends
         await delete_old_np_message(player)
@@ -180,12 +188,6 @@ def setup(bot: commands.Bot):
                 if guild and guild.voice_client:
                     await guild.voice_client.disconnect(force=True)
 
-    # Explicitly register handlers with the Lavalink client to ensure delivery
-    try:
-        bot.lavalink.add_event_hook(on_track_start)
-        bot.lavalink.add_event_hook(on_track_end)
-    except Exception:
-        pass
 
     @bot.hybrid_command(name="play", description="Play a song or add to the queue")
     async def play(ctx: commands.Context, *, query: str):
@@ -252,8 +254,9 @@ def setup(bot: commands.Bot):
 
             async def maybe_send_np():
                 await asyncio.sleep(1.0)
-                # Unconditionally attempt to post NP as a fallback in case events don't fire
-                await send_now_playing_embed(player)
+                # Only post NP if the listener hasn't already sent it
+                if not player.fetch('message_id'):
+                    await send_now_playing_embed(player)
             asyncio.create_task(maybe_send_np())
 
     @bot.hybrid_command(name="queue", description="Shows the current music queue")
