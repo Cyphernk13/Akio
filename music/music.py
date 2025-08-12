@@ -157,26 +157,16 @@ def setup(bot: commands.Bot):
             print(f"Failed to send Now Playing embed in guild {channel.guild.id} channel {channel.id}: {e}")
 
     # --- Use TrackStartEvent for 'Now Playing' messages ---
-    @lavalink.listener(lavalink.TrackStartEvent)
-    async def on_track_start(event: lavalink.TrackStartEvent):
-        # Only handle actual TrackStartEvent instances
-        if not isinstance(event, lavalink.events.TrackStartEvent):
-            return
-        # Deduplicate per track using a key
+    @lavalink.listener(lavalink.events.TrackStartEvent)
+    async def on_track_start(event: lavalink.events.TrackStartEvent):
+        # Small delay to ensure player.current is populated
+        await asyncio.sleep(0.15)
         track = getattr(event, 'track', None)
-        if track:
-            last_track_id = event.player.fetch('last_np_track_identifier')
-            if last_track_id == track.identifier:
-                return
-            event.player.store('last_np_track_identifier', track.identifier)
         await send_now_playing_embed(event.player, track)
 
     # --- Use TrackEndEvent for queue logic and cleanup ---
-    @lavalink.listener(lavalink.TrackEndEvent)
-    async def on_track_end(event: lavalink.TrackEndEvent):
-        # Only handle actual TrackEndEvent instances
-        if not isinstance(event, lavalink.events.TrackEndEvent):
-            return
+    @lavalink.listener(lavalink.events.TrackEndEvent)
+    async def on_track_end(event: lavalink.events.TrackEndEvent):
         player = event.player
         # Clean up the old NP message when a track ends
         await delete_old_np_message(player)
@@ -184,9 +174,12 @@ def setup(bot: commands.Bot):
         if player.loop == 0 and not player.queue:
             await asyncio.sleep(120)
             if player.is_connected and not player.is_playing:
-                guild = bot.get_guild(player.guild_id)
-                if guild and guild.voice_client:
-                    await guild.voice_client.disconnect(force=True)
+                try:
+                    guild = bot.get_guild(player.guild_id)
+                    if guild and guild.voice_client:
+                        await guild.voice_client.disconnect(force=True)
+                except Exception:
+                    pass
 
 
     @bot.hybrid_command(name="play", description="Play a song or add to the queue")
