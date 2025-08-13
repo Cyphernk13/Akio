@@ -56,7 +56,6 @@ Akio is a versatile and fun-to-use Discord bot packed with features to bring you
     ```
     TOKEN=your_discord_bot_token
     GEMINI_API_KEY=your_gemini_api_key
-    GIF=your_tenor_gif_api_key
     ```
 4.  **Run the bot:**
     ```sh

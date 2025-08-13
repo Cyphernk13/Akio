@@ -9,6 +9,13 @@ load_dotenv()
 # to identify them later.
 AI_MSG_MARKER = "\u200b"
 
+# Configure Gemini API key (support both GEMINI_API_KEY and GOOGLE_API_KEY)
+API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+if API_KEY:
+    genai.configure(api_key=API_KEY)
+else:
+    print("[Gemini] Warning: No API key found. Set GEMINI_API_KEY (preferred) or GOOGLE_API_KEY in your .env")
+
 # A more detailed personality for Akio
 system_instruction = """
 You are Akio, a friendly and slightly mischievous Discord bot with a love for music, anime, and playing games.

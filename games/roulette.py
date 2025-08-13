@@ -2,21 +2,21 @@ import discord
 from discord.ext import commands
 import random
 import asyncio
-from modules.gif_utils import get_gif_by_id
+from modules.gif_utils import get_otaku_gif
 
 # Dictionary to store active games or lobbies, keyed by channel ID
 active_games = {}
 
-# A list of GIF IDs instead of URLs
-death_gif_ids = [
-    "21247730",                # L death note
-    "6737885940702044175",     # One piece marineford
-    "7287725",                 # zankyou
-    "9282695421132909706",     # nanami
-    "769732690373477383",      # toji
-    "19232078",                # anime girl dies
-    "18279727",                # haikyuu
-    "5829296764920437849"      # kita death
+# Reactions to show on elimination (OtakuGIFs reactions)
+death_reactions = [
+    "evillaugh",
+    "punch",
+    "smack",
+    "mad",
+    "angrystare",
+    "sad",
+    "cry",
+    "shout",
 ]
 
 
@@ -77,8 +77,8 @@ class RussianRouletteView(discord.ui.View):
             embed.color = discord.Color.dark_red()
             embed.description = f"**BANG!** 💥\n\nThe revolver fires. {current_player.mention} has been eliminated!"
             
-            chosen_id = random.choice(death_gif_ids)
-            gif_url = get_gif_by_id(chosen_id)
+            chosen_reaction = random.choice(death_reactions)
+            gif_url = get_otaku_gif(chosen_reaction)
             if gif_url:
                 embed.set_image(url=gif_url)
             

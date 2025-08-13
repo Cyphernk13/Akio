@@ -1,6 +1,7 @@
 import discord
 from discord.ui import Select, View
 from discord.ext import commands
+from modules.gif_utils import get_cached_reactions
 
 # A dictionary to hold all the command information for easy management.
 COMMANDS_DATA = {
@@ -63,11 +64,7 @@ COMMANDS_DATA = {
         "emoji": "<:pinkheart:1399583453258977440>",
         "label": "Actions",
         "description": "Roleplay action commands.",
-        "content": (
-            "`<action> [user]`: Try one of the 24 available actions!\n"
-            "e.g., `akio hug @user`\n\n"
-            "**List:** `hug`, `kiss`, `slap`, `kill`, `blush`, `smirk`, `tickle`, `roast`, `kick`, `shrug`, `pat`, `bully`, `clap`, `applaud`, `salute`, `highfive`, `think`, `cheer`, `wink`, `laugh`, `wave`, `dance`, `spin`, `pout`"
-        )
+        "content": ""
     },
     "utility": {
         "emoji": "🛠️",
@@ -116,9 +113,50 @@ class HelpSelect(Select):
             embed.set_footer(text="Have fun using Akio! | kuru~ kuru~")
         else:
             data = COMMANDS_DATA[category]
+            description = data['content']
+            if category == "actions":
+                try:
+                    reactions = get_cached_reactions()
+                except Exception:
+                    reactions = []
+                # Categorize like OwO: Emotes vs Actions
+                emotes = {
+                    "bleh","blush","celebrate","cheers","clap","confused","cool","cry","dance","drool",
+                    "evillaugh","facepalm","happy","headbang","huh","laugh","love","mad","nervous","no",
+                    "nosebleed","nyah","pout","roll","run","sad","scared","shout","shrug","shy","sigh",
+                    "sip","sleep","slowclap","smile","smug","sneeze","sorry","stop","surprised","sweat",
+                    "thumbsup","tired","wink","woah","yawn","yay","yes"
+                }
+                actions = {
+                    "airkiss","angrystare","bite","brofist","cuddle","handhold","hug","kiss","lick","nom",
+                    "nuzzle","pat","peek","pinch","poke","punch","slap","smack","stare","tickle","wave"
+                }
+                # Intersect with actually available reactions (if we got them)
+                if reactions:
+                    rset = set(reactions)
+                    emotes = sorted([r for r in emotes if r in rset])
+                    actions = sorted([r for r in actions if r in rset])
+                else:
+                    emotes = sorted(list(emotes))
+                    actions = sorted(list(actions))
+
+                def fmt(items):
+                    return " ".join(f"`{x}`" for x in items)
+
+                description = (
+                    "Use prefix commands (akio <cmd>).\n"
+                    "- **Emotes** are self-only (mentions are ignored).\n"
+                    "- **Actions** can mention a target or act on yourself if none is given.\n\n"
+                    "🙂 Emotes\n"
+                    f"{fmt(emotes)}\n\n"
+                    "🤗 Actions\n"
+                    f"{fmt(actions)}\n\n"
+                    "Examples:\n"
+                    "`akio blush` · `akio hug @user` · `akio facepalm`"
+                )
             embed = discord.Embed(
                 title=f"{data['emoji']} {data['label']} Commands",
-                description=data['content'],
+                description=description,
                 color=0x7289DA
             )
             if self.bot.user.avatar:
