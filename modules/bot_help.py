@@ -39,8 +39,9 @@ COMMANDS_DATA = {
             "`pause` / `resume`: Control playback.\n"
             "`skip`: Skip the current song.\n"
             "`queue`: View the song queue.\n"
+            "`volume <0-1500>`: Adjust the volume.\n"
             "`nowplaying`: See the current track.\n"
-            "`disconnect`: Disconnect me from VC."
+            "`leave`: Disconnect me from VC."
         )
     },
     "games": {

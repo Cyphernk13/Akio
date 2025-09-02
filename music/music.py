@@ -5,6 +5,7 @@ import lavalink
 import asyncio
 from datetime import timedelta
 import re
+from typing import Dict, List, Optional, Tuple
 
 # Import the custom voice client from its dedicated file
 from .lavalink_client import LavalinkVoiceClient
@@ -26,16 +27,76 @@ def format_duration(milliseconds: int) -> str:
 
 class PlayerControls(discord.ui.View):
     """A view with music player controls."""
-    def __init__(self, player: lavalink.DefaultPlayer):
+    def __init__(self, player: lavalink.DefaultPlayer, get_prefs_func=None, apply_eq_func=None, eq_presets: Dict[str, List[Tuple[int, float]]] | None = None):
         super().__init__(timeout=None)
         self.player = player
+        self.get_prefs = get_prefs_func
+        self.apply_equalizer = apply_eq_func
+        self.eq_presets = eq_presets or {}
         self.update_buttons()
 
     def update_buttons(self):
         """Updates the state of the buttons based on the player's state."""
+        # Custom emoji set
+        E = {
+            'pause': '<:pause:1412529948861665491>',
+            'play': '<:play:1412530216965767349>',
+            'skip': '<:skip:1412530943121555546>',
+            'prev': '<:prev:1412530972779352214>',
+            'vol_up': '<:vol_up:1412531098474512556>',
+            'vol_down': '<:vol_down:1412531122348232704>',
+            'loop': '<:loop:1412531198147952832>',
+            'playlist': '<:playlist:1412531317186498580>',
+            'stop': '<:stop:1412531800592613406>',
+            'shuffle': '<:shuffle:1412532183750676532>',
+            'restart': '<:restart:1412545166161481818>',
+        }
+
+        # Pause/Resume label and emoji
         self.pause_resume.label = "Resume" if self.player.paused else "Pause"
-        loop_map = {0: "Off", 1: "Track", 2: "Queue"}
-        self.loop.label = f"Loop: {loop_map.get(self.player.loop, 'Off')}"
+        try:
+            self.pause_resume.emoji = E['play'] if self.player.paused else E['pause']
+        except Exception:
+            pass
+
+        # Loop label (no "Off" text)
+        loop_map = {0: "Loop", 1: "Track", 2: "Queue"}
+        self.loop.label = loop_map.get(self.player.loop, "Loop")
+        try:
+            self.loop.emoji = E['loop']
+        except Exception:
+            pass
+
+        # Volume labels and emojis
+        try:
+            vol = int(self.player.fetch('volume') or 100)
+        except Exception:
+            vol = 100
+        vol = max(0, min(1000, vol))
+        if hasattr(self, 'vol_down'):
+            self.vol_down.label = "Down"
+            try:
+                self.vol_down.emoji = E['vol_down']
+            except Exception:
+                pass
+        if hasattr(self, 'vol_up'):
+            self.vol_up.label = "Up"
+            try:
+                self.vol_up.emoji = E['vol_up']
+            except Exception:
+                pass
+
+        # Static button emojis
+        try:
+            self.skip.emoji = E['skip']
+            self.back.emoji = E['prev']
+            self.stop_callback.emoji = E['stop']
+            self.shuffle.emoji = E['shuffle']
+            self.playlist.emoji = E['playlist']
+            if hasattr(self, 'restart'):
+                self.restart.emoji = E['restart']
+        except Exception:
+            pass
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         """A robust check to ensure the user is in the same voice channel as the bot."""
@@ -50,53 +111,240 @@ class PlayerControls(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="Pause", style=discord.ButtonStyle.secondary, emoji="⏯️")
+    @discord.ui.button(label="Pause", style=discord.ButtonStyle.secondary, emoji="⏸️", row=0)
     async def pause_resume(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.player.set_pause(not self.player.paused)
         self.update_buttons()
         await interaction.response.edit_message(view=self)
 
-    @discord.ui.button(label="Skip", style=discord.ButtonStyle.primary, emoji="⏭️")
+    @discord.ui.button(label="Skip", style=discord.ButtonStyle.primary, emoji="⏭️", row=0)
     async def skip(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # If loop is off and the next track is identical to current, drop it to avoid double playback
+        try:
+            current = self.player.current
+            if current and getattr(self.player, 'loop', 0) == 0 and self.player.queue:
+                nxt = self.player.queue[0]
+                if getattr(nxt, 'identifier', None) == getattr(current, 'identifier', None):
+                    self.player.queue.pop(0)
+        except Exception:
+            pass
         await self.player.skip()
         await interaction.response.send_message("Skipped the song.", ephemeral=True)
 
-    @discord.ui.button(label="Stop", style=discord.ButtonStyle.danger, emoji="⏹️")
+    @discord.ui.button(label="Stop", style=discord.ButtonStyle.danger, emoji="⏹️", row=1)
     async def stop_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.guild.voice_client:
             await interaction.guild.voice_client.disconnect(force=True)
+            # Reset volume to default on manual stop
+            try:
+                if self.get_prefs:
+                    prefs = self.get_prefs(interaction.guild.id)
+                    prefs['volume'] = 70
+                self.player.store('volume', 70)
+            except Exception:
+                pass
         try:
             await interaction.message.delete()
         except discord.NotFound:
             pass
         self.stop()
 
-    @discord.ui.button(label="Loop: Off", style=discord.ButtonStyle.secondary, emoji="🔁")
+    @discord.ui.button(label="Loop", style=discord.ButtonStyle.secondary, emoji="🔁", row=1)
     async def loop(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.player.loop = (self.player.loop + 1) % 3
         self.update_buttons()
         await interaction.response.edit_message(view=self)
 
-class TrackSelect(discord.ui.Select):
-    """A select menu for choosing a track from search results."""
-    def __init__(self, tracks: list[lavalink.AudioTrack]):
-        options = [
-            discord.SelectOption(
-                label=track.title[:100],
-                description=f"by {track.author} | {format_duration(track.duration)}",
-                value=str(i)
-            ) for i, track in enumerate(tracks[:25])
-        ]
-        super().__init__(placeholder="Choose a song...", options=options)
-        self.tracks = tracks
-        self.chosen_track = None
+    @discord.ui.button(label="Down", style=discord.ButtonStyle.secondary, emoji="🔉", row=0)
+    async def vol_down(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            current = int(self.player.fetch('volume') or 100)
+        except Exception:
+            current = 100
+        new_vol = max(0, current - 10)
+        await self.player.set_volume(new_vol)
+        try:
+            self.player.store('volume', new_vol)
+            if self.get_prefs:
+                prefs = self.get_prefs(interaction.guild.id)
+                prefs['volume'] = new_vol
+        except Exception:
+            pass
+        self.update_buttons()
+        # Update panel embed Volume field live
+        try:
+            msg = interaction.message
+            if msg and msg.embeds:
+                embed = msg.embeds[0]
+                for i, field in enumerate(embed.fields):
+                    if field.name == "Volume":
+                        embed.set_field_at(i, name="Volume", value=f"{new_vol}%", inline=field.inline)
+                        break
+                await interaction.response.edit_message(embed=embed, view=self)
+            else:
+                await interaction.response.edit_message(view=self)
+        except Exception:
+            await interaction.response.edit_message(view=self)
 
-    async def callback(self, interaction: discord.Interaction):
-        self.chosen_track = self.tracks[int(self.values[0])]
-        self.view.stop()
+    @discord.ui.button(label="Up", style=discord.ButtonStyle.secondary, emoji="🔊", row=0)
+    async def vol_up(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            current = int(self.player.fetch('volume') or 100)
+        except Exception:
+            current = 100
+        new_vol = min(1000, current + 10)
+        await self.player.set_volume(new_vol)
+        try:
+            self.player.store('volume', new_vol)
+            if self.get_prefs:
+                prefs = self.get_prefs(interaction.guild.id)
+                prefs['volume'] = new_vol
+        except Exception:
+            pass
+        self.update_buttons()
+        # Update panel embed Volume field live
+        try:
+            msg = interaction.message
+            if msg and msg.embeds:
+                embed = msg.embeds[0]
+                for i, field in enumerate(embed.fields):
+                    if field.name == "Volume":
+                        embed.set_field_at(i, name="Volume", value=f"{new_vol}%", inline=field.inline)
+                        break
+                await interaction.response.edit_message(embed=embed, view=self)
+            else:
+                await interaction.response.edit_message(view=self)
+        except Exception:
+            await interaction.response.edit_message(view=self)
+
+    # Bass button removed; bass-boost is on by default via preferences
+
+    @discord.ui.button(label="Restart", style=discord.ButtonStyle.secondary, emoji="▶️", row=1)
+    async def restart(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            await self.player.seek(0)
+            await interaction.response.send_message("Restarted track.", ephemeral=True)
+        except Exception:
+            await interaction.response.send_message("Couldn't restart.", ephemeral=True)
+
+    @discord.ui.button(label="Back", style=discord.ButtonStyle.secondary, emoji="⏮️", row=0)
+    async def back(self, interaction: discord.Interaction, button: discord.ui.Button):
+        history = self.player.fetch('history') or []
+        if not history:
+            return await interaction.response.send_message("No previous track.", ephemeral=True)
+        prev = history.pop()
+        try:
+            self.player.store('history', history)
+        except Exception:
+            pass
+        try:
+            current = self.player.current
+            if current:
+                self.player.queue.insert(0, current)
+        except Exception:
+            pass
+        await self.player.play(prev)
         await interaction.response.defer()
 
+    @discord.ui.button(label="Shuffle", style=discord.ButtonStyle.secondary, emoji="🔀", row=1)
+    async def shuffle(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            self.player.shuffle = not getattr(self.player, 'shuffle', False)
+        except Exception:
+            self.player.shuffle = not False
+        await interaction.response.send_message("Toggled shuffle.", ephemeral=True)
+
+    @discord.ui.button(label="Playlist", style=discord.ButtonStyle.secondary, emoji="🧾", row=1)
+    async def playlist(self, interaction: discord.Interaction, button: discord.ui.Button):
+        q = self.player.queue
+        if not q:
+            return await interaction.response.send_message("Queue is empty.", ephemeral=True)
+        items = []
+        for i, t in enumerate(q[:10], start=1):
+            items.append(f"`{i}.` [{t.title}]({t.uri}) — `{format_duration(t.duration)}`")
+        embed = discord.Embed(title="Music Queue", description="\n".join(items), color=discord.Color.blurple())
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    
+
 def setup(bot: commands.Bot):
+    # Playback lock per guild to serialize queue/play transitions and avoid races
+    playback_locks: Dict[int, asyncio.Lock] = {}
+
+    def get_lock(guild_id: int) -> asyncio.Lock:
+        lock = playback_locks.get(guild_id)
+        if not lock:
+            lock = asyncio.Lock()
+            playback_locks[guild_id] = lock
+        return lock
+
+    # Per-guild audio preferences (volume, EQ preset, autoplay)
+    audio_prefs: Dict[int, Dict] = {}
+
+    def get_prefs(guild_id: int) -> Dict:
+        if guild_id not in audio_prefs:
+            audio_prefs[guild_id] = {
+                'volume': 70,  # comfortable default
+                'eq_preset': 'bass-boost',  # keep bass on by default
+                'autoplay': False,
+            }
+        return audio_prefs[guild_id]
+
+    # Equalizer preset definitions (15 bands: 0..14), gains in range [-0.25, +1.0] typically
+    EQ_PRESETS: Dict[str, List[Tuple[int, float]]] = {
+        'flat': [(i, 0.0) for i in range(15)],
+        'soft': [(i, -0.05) for i in range(15)],  # slight reduction overall
+        'bass-boost': [
+            (0, 0.30), (1, 0.25), (2, 0.20), (3, 0.10), (4, 0.05),
+            (5, 0.00), (6, 0.00), (7, 0.00), (8, 0.00), (9, 0.00),
+            (10, -0.02), (11, -0.04), (12, -0.05), (13, -0.05), (14, -0.05)
+        ],
+        'vocal-boost': [
+            (0, -0.05), (1, -0.05), (2, -0.02), (3, 0.00), (4, 0.10),
+            (5, 0.15), (6, 0.18), (7, 0.15), (8, 0.10), (9, 0.05),
+            (10, 0.00), (11, -0.02), (12, -0.02), (13, -0.03), (14, -0.03)
+        ],
+        'treble-cut': [
+            (0, 0.00), (1, 0.00), (2, 0.00), (3, 0.00), (4, 0.00),
+            (5, -0.05), (6, -0.08), (7, -0.10), (8, -0.12), (9, -0.15),
+            (10, -0.18), (11, -0.20), (12, -0.20), (13, -0.20), (14, -0.20)
+        ],
+    }
+
+    async def apply_equalizer(player: lavalink.DefaultPlayer, bands_tuples: List[Tuple[int, float]]):
+        """Try multiple APIs to apply EQ depending on lavalink.py version."""
+        # Convert tuples to the structure various APIs expect
+        bands_dicts = [{'band': b, 'gain': g} for b, g in bands_tuples]
+        try:
+            # v5+ possible API
+            if hasattr(lavalink, 'Filters') and hasattr(player, 'set_filters'):
+                filters = lavalink.Filters()
+                # Some versions use property, others a method
+                try:
+                    filters.equalizer = bands_dicts
+                except Exception:
+                    # fall back in case different structure needed
+                    pass
+                await player.set_filters(filters)
+                return
+        except Exception as e:
+            print(f"[Music] set_filters equalizer failed: {e}")
+
+        try:
+            # Older API: set_gains(*[(band, gain), ...])
+            if hasattr(player, 'set_gains'):
+                await player.set_gains(*bands_tuples)
+                return
+        except Exception as e:
+            print(f"[Music] set_gains failed: {e}")
+
+        try:
+            # Older API: equalizer([{band, gain}, ...])
+            if hasattr(player, 'equalizer'):
+                await player.equalizer(bands_dicts)  # type: ignore
+                return
+        except Exception as e:
+            print(f"[Music] equalizer() failed: {e}")
 
     # --- New 'Now Playing' Sender ---
     async def delete_old_np_message(player: lavalink.DefaultPlayer):
@@ -138,19 +386,26 @@ def setup(bot: commands.Bot):
 
         requester = channel.guild.get_member(getattr(track, 'requester', 0))
         embed = discord.Embed(
-            title="<a:Milk10:1399578671941156996> Now Playing",
-            description=f"**[{track.title}]({track.uri})**\nby {track.author}",
-            color=discord.Color.green()
+            title="MUSIC PANEL",
+            description=f"<a:Milk10:1399578671941156996> **[{track.title}]({track.uri})**",
+            color=discord.Color.blurple()
         )
         if getattr(track, 'artwork_url', None):
             embed.set_thumbnail(url=track.artwork_url)
-        embed.add_field(name="Duration", value=format_duration(track.duration))
+        # Show current volume instead of duplicating the requester (already in footer)
+        try:
+            vol = int(player.fetch('volume') or 70)
+        except Exception:
+            vol = 70
+        embed.add_field(name="Volume", value=f"{vol}%")
+        embed.add_field(name="Music Duration", value=format_duration(track.duration))
+        embed.add_field(name="Music Author", value=getattr(track, 'author', 'Unknown'))
         if requester:
             avatar_url = requester.display_avatar.url
             embed.set_footer(text=f"Requested by {requester.display_name}", icon_url=avatar_url)
 
         try:
-            message = await channel.send(embed=embed, view=PlayerControls(player))
+            message = await channel.send(embed=embed, view=PlayerControls(player, get_prefs_func=get_prefs, apply_eq_func=apply_equalizer, eq_presets=EQ_PRESETS))
             player.store('message_id', message.id)
             print(f"[Music] NP sent: guild={channel.guild.id}, channel={channel.id}, message_id={message.id}, track={track.title}")
         except Exception as e:
@@ -169,6 +424,24 @@ def setup(bot: commands.Bot):
             await asyncio.sleep(0.25)
             track = getattr(event, 'track', None)
             print(f"[Music] After delay: player.current is {'present' if player.current else 'missing'}; event.track is {'present' if track else 'missing'}")
+            # Apply preferred volume and EQ per guild on track start (bass-boost by default)
+            try:
+                prefs = get_prefs(player.guild_id)
+                await player.set_volume(int(prefs.get('volume', 70)))
+                try:
+                    player.store('volume', int(prefs.get('volume', 70)))
+                except Exception:
+                    pass
+                preset = prefs.get('eq_preset', 'bass-boost')
+                bands = EQ_PRESETS.get(preset)
+                if bands:
+                    await apply_equalizer(player, bands)
+                try:
+                    player.store('eq_preset', preset)
+                except Exception:
+                    pass
+            except Exception as e:
+                print(f"[Music] Failed to apply volume/EQ on start: {e}")
             await send_now_playing_embed(player, track)
             return
 
@@ -180,25 +453,132 @@ def setup(bot: commands.Bot):
             reason = str(getattr(event, 'reason', 'unknown')).lower()
             print(f"[Music] TrackEndEvent: guild={player.guild_id}, reason={reason}, queue_len={len(player.queue)} current={'present' if player.current else 'missing'}")
             await delete_old_np_message(player)
-            # Only auto-advance on natural finishes
-            if reason == 'finished' and player.loop == 0:
-                if player.queue:
-                    try:
-                        next_track = player.queue[0]
-                        print(f"[Music] Auto-advancing to next track: id={getattr(next_track, 'identifier', 'unknown')} title={getattr(next_track, 'title', 'unknown')}")
-                        await player.play(player.queue.pop(0))
-                    except Exception as e:
-                        print(f"[Music] Failed to auto-play next track: {e}")
-                else:
-                    print(f"[Music] Queue empty; scheduling disconnect if idle")
-                    await asyncio.sleep(120)
-                    if player.is_connected and not player.is_playing:
+            # Serialize end-handling to avoid races with play command
+            lock = get_lock(player.guild_id)
+            async with lock:
+                # Handle only relevant reasons; ignore manual stop/replace
+                if reason in { 'replaced', 'stopped' }:
+                    return
+                # Loop logic
+                try:
+                    just_played = getattr(event, 'track', None)
+                except Exception:
+                    just_played = None
+
+                # Maintain simple history stack
+                try:
+                    if just_played:
+                        hist = player.fetch('history') or []
+                        hist.append(just_played)
+                        if len(hist) > 25:
+                            hist = hist[-25:]
+                        player.store('history', hist)
+                except Exception:
+                    pass
+
+                try:
+                    if player.loop == 1:  # Track loop (replay same without queuing duplicates)
+                        if just_played:
+                            await player.play(just_played)
+                            return
+                    elif player.loop == 2:  # Queue loop (append just played to end once)
+                        if just_played:
+                            # Append just played track back to end, avoid immediate duplicate at head
+                            try:
+                                if not player.queue or getattr(player.queue[-1], 'identifier', None) != getattr(just_played, 'identifier', None):
+                                    player.queue.append(just_played)
+                            except Exception:
+                                pass
+                    else:
+                        # Loop off: if the next track equals just_played, drop it to prevent double-play
                         try:
-                            guild = bot.get_guild(player.guild_id)
-                            if guild and guild.voice_client:
-                                await guild.voice_client.disconnect(force=True)
+                            if player.queue and just_played and getattr(player.queue[0], 'identifier', None) == getattr(just_played, 'identifier', None):
+                                player.queue.pop(0)
                         except Exception:
                             pass
+                        # Play next available (either next in queue or the just appended)
+                        if (not player.is_playing) and (player.current is None):
+                            next_track = None
+                            if player.queue:
+                                next_track = player.queue.pop(0)
+                            elif just_played:
+                                next_track = just_played
+                            if next_track:
+                                await player.play(next_track)
+                                return
+
+                    # No loop; natural finish -> advance
+                    if reason == 'finished' and (not player.is_playing) and (player.current is None):
+                        if player.queue:
+                            next_track = player.queue.pop(0)
+                            print(f"[Music] Auto-advancing to next track: id={getattr(next_track, 'identifier', 'unknown')} title={getattr(next_track, 'title', 'unknown')}")
+                            await player.play(next_track)
+                        else:
+                            print(f"[Music] Queue empty; scheduling disconnect if idle")
+                            await asyncio.sleep(120)
+                            if player.is_connected and not player.is_playing:
+                                try:
+                                    guild = bot.get_guild(player.guild_id)
+                                    if guild and guild.voice_client:
+                                        await guild.voice_client.disconnect(force=True)
+                                        try:
+                                            # Reset volume to default after disconnect
+                                            prefs = get_prefs(player.guild_id)
+                                            prefs['volume'] = 70
+                                            player.store('volume', 70)
+                                        except Exception:
+                                            pass
+                                except Exception:
+                                    pass
+                except Exception as e:
+                    print(f"[Music] Error during TrackEnd handling: {e}")
+
+            return
+
+        # Track Stuck or Exception -> skip to next gracefully
+        if event_name in { 'TrackStuckEvent', 'TrackExceptionEvent' }:
+            player = getattr(event, 'player', None)
+            if not player:
+                return
+            print(f"[Music] {event_name}: guild={player.guild_id}; attempting to skip to next")
+            lock = get_lock(player.guild_id)
+            async with lock:
+                try:
+                    if player.queue:
+                        await player.play(player.queue.pop(0))
+                    else:
+                        # Try to restart the same track once (stuck)
+                        track = getattr(event, 'track', None)
+                        if track:
+                            try:
+                                await player.play(track)
+                            except Exception:
+                                pass
+                except Exception as e:
+                    print(f"[Music] Failed to recover from {event_name}: {e}")
+            return
+
+        # Queue ended event (if emitted by library)
+        if event_name == 'QueueEndEvent':
+            player = getattr(event, 'player', None)
+            if not player:
+                return
+            print(f"[Music] QueueEndEvent: guild={player.guild_id}; scheduling idle disconnect")
+            await asyncio.sleep(120)
+            if player.is_connected and not player.is_playing:
+                try:
+                    guild = bot.get_guild(player.guild_id)
+                    if guild and guild.voice_client:
+                        await guild.voice_client.disconnect(force=True)
+                        try:
+                            prefs = get_prefs(player.guild_id)
+                            prefs['volume'] = 70
+                            player.store('volume', 70)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+            return
 
     # Register a single event hook that filters by event type
     try:
@@ -218,64 +598,43 @@ def setup(bot: commands.Bot):
             print(f"[Music] Stored text channel {ctx.channel.id} for guild {ctx.guild.id}")
         except Exception:
             pass
-        
-        if not ctx.voice_client:
-            await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
-        elif ctx.voice_client.channel.id != ctx.author.voice.channel.id:
-            return await ctx.send("You must be in the same voice channel as me.", ephemeral=True)
 
-        await ctx.defer()
-        
-        query = query.strip('<>')
-        if not URL_REGEX.match(query):
-            query = f'ytsearch:{query}'
-            
-        results = await player.node.get_tracks(query)
+        lock = get_lock(ctx.guild.id)
+        async with lock:
+            if not ctx.voice_client:
+                await ctx.author.voice.channel.connect(cls=LavalinkVoiceClient)
+            elif ctx.voice_client.channel.id != ctx.author.voice.channel.id:
+                return await ctx.send("You must be in the same voice channel as me.", ephemeral=True)
 
-        if not results or not results.tracks:
-            return await ctx.send(embed=discord.Embed(description=f"❌ No results found for `{query}`.", color=discord.Color.red()))
+            await ctx.defer()
 
-        if results.load_type == lavalink.LoadType.PLAYLIST:
-            tracks = results.tracks
-            for track in tracks:
-                track.requester = ctx.author.id
-                player.add(track=track)
-            embed = discord.Embed(title="📜 Playlist Added", description=f"Added **{len(tracks)}** songs from **{results.playlist_info.name}**.", color=discord.Color.purple())
-            await ctx.send(embed=embed)
-        else:
-            track_to_add = None
-            if len(results.tracks) > 1 and results.load_type == lavalink.LoadType.SEARCH:
-                view = discord.ui.View(timeout=60)
-                select_menu = TrackSelect(results.tracks)
-                view.add_item(select_menu)
-                msg = await ctx.send("🔎 **Found multiple tracks, please choose one:**", view=view)
-                await view.wait()
-                
-                try:
-                    await msg.delete()
-                except discord.NotFound:
-                    pass
-                
-                track_to_add = select_menu.chosen_track
-                if not track_to_add:
-                    return await ctx.send(embed=discord.Embed(description="Selection timed out.", color=discord.Color.orange()))
+            query = query.strip('<>')
+            is_url = URL_REGEX.match(query) is not None
+            search_q = query if is_url else f'ytsearch:{query}'
+
+            temp_msg = await ctx.send(embed=discord.Embed(description="<:ZeroSip:1404982303180066856> Akio is thinking...", color=discord.Color.blurple()), delete_after=5)
+            results = await player.node.get_tracks(search_q)
+
+            if not results or not results.tracks:
+                return await ctx.send(embed=discord.Embed(description=f"<:no:1404980370486722621> No results found for `{query}`.", color=discord.Color.red()))
+
+            if results.load_type == lavalink.LoadType.PLAYLIST:
+                tracks = results.tracks
+                for track in tracks:
+                    track.requester = ctx.author.id
+                    player.add(track=track)
+                embed = discord.Embed(title="<:playlist:1412531317186498580> Playlist Added", description=f"Added **{len(tracks)}** songs from **{results.playlist_info.name}**.", color=discord.Color.purple())
+                await ctx.send(embed=embed)
             else:
-                track_to_add = results.tracks[0]
+                # Auto-choose the first track and play instantly
+                chosen = results.tracks[0]
+                chosen.requester = ctx.author.id
+                player.add(track=chosen)
+                await ctx.send(embed=discord.Embed(description=f"<a:verify:1399579399107379271> Added **[{chosen.title}]({chosen.uri})** to the queue.", color=discord.Color.green()), delete_after=6)
 
-            track_to_add.requester = ctx.author.id
-            player.add(track=track_to_add)
-            embed = discord.Embed(description=f"<a:verify:1399579399107379271> Added **[{track_to_add.title}]({track_to_add.uri})** to the queue.", color=discord.Color.og_blurple())
-            await ctx.send(embed=embed)
-
-        if not player.is_playing:
-            await player.play(player.queue.pop(0))
-
-            async def maybe_send_np():
-                await asyncio.sleep(1.0)
-                # Only post NP if the listener hasn't already sent it
-                if not player.fetch('message_id'):
-                    await send_now_playing_embed(player)
-            asyncio.create_task(maybe_send_np())
+            # Start playback only if idle
+            if not player.is_playing and not player.current and player.queue:
+                await player.play(player.queue.pop(0))
 
     @bot.hybrid_command(name="queue", description="Shows the current music queue")
     async def queue(ctx: commands.Context, page: int = 1):
@@ -328,7 +687,7 @@ def setup(bot: commands.Bot):
         if requester:
             embed.set_footer(text=f"Requested by {requester.display_name}", icon_url=requester.avatar.url)
         
-        await ctx.send(embed=embed, view=PlayerControls(player))
+        await ctx.send(embed=embed, view=PlayerControls(player, get_prefs_func=get_prefs, apply_eq_func=apply_equalizer, eq_presets=EQ_PRESETS))
 
     @bot.hybrid_command(name="loop", description="Toggle loop mode (Off, Track, Queue)")
     async def loop(ctx: commands.Context):
@@ -350,7 +709,7 @@ def setup(bot: commands.Bot):
         
         player.shuffle = not player.shuffle
         
-        desc = "🔀 The queue has been shuffled!" if player.shuffle else "▶️ The queue is no longer shuffled."
+        desc = "<:shuffle:1412532183750676532> The queue has been shuffled!" if player.shuffle else "<:play:1412530216965767349> The queue is no longer shuffled."
         embed = discord.Embed(description=desc, color=discord.Color.random())
         await ctx.send(embed=embed)
 
@@ -375,6 +734,15 @@ def setup(bot: commands.Bot):
             return await ctx.send(embed=discord.Embed(description="I'm not connected to any voice channel.", color=discord.Color.orange()))
         
         await ctx.voice_client.disconnect(force=True)
+        # Reset volume to default on disconnect
+        try:
+            prefs = get_prefs(ctx.guild.id)
+            prefs['volume'] = 70
+            player = bot.lavalink.player_manager.get(ctx.guild.id)
+            if player:
+                player.store('volume', 70)
+        except Exception:
+            pass
         
         embed = discord.Embed(description="<:MomijiWave:1399580630207168606> Disconnected and cleared the queue.", color=discord.Color.blue())
         await ctx.send(embed=embed)
@@ -384,9 +752,34 @@ def setup(bot: commands.Bot):
         player = bot.lavalink.player_manager.get(ctx.guild.id)
         if not player:
             return await ctx.send("Not connected to a voice channel.")
-            
+        
         await player.set_volume(volume)
-        await ctx.send(f"🔊 Volume set to **{volume}%**")
+        # Update stored state for UI buttons and prefs
+        prefs = get_prefs(ctx.guild.id)
+        prefs['volume'] = int(volume)
+        try:
+            player.store('volume', int(volume))
+        except Exception:
+            pass
+        # Try to update the latest NP panel Volume field if we can
+        try:
+            msg_id = player.fetch('message_id') if player else None
+            channel_id = player.fetch('channel') if player else None
+            if msg_id and channel_id:
+                channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
+                msg = await channel.fetch_message(msg_id)
+                if msg and msg.embeds:
+                    embed = msg.embeds[0]
+                    for i, field in enumerate(embed.fields):
+                        if field.name == "Volume":
+                            embed.set_field_at(i, name="Volume", value=f"{volume}%", inline=field.inline)
+                            break
+                    await msg.edit(embed=embed)
+        except Exception:
+            pass
+        await ctx.send(f"<:speaker:1412542837198950511> Volume set to **{volume}%**")
+
+    # Removed normalize/eq commands; use player UI buttons for volume and bass
         
     @bot.hybrid_command(name="skip", description="Skip the current song")
     async def skip(ctx: commands.Context):
@@ -394,7 +787,7 @@ def setup(bot: commands.Bot):
         if not player or not player.is_playing:
             return await ctx.send("Nothing is playing to skip.")
         await player.skip()
-        await ctx.send("⏭️ Skipped the current song.")
+        await ctx.send("<:skip:1412530943121555546> Skipped the current song.")
 
     @bot.hybrid_command(name="pause", description="Pause the music")
     async def pause(ctx: commands.Context):
@@ -403,7 +796,7 @@ def setup(bot: commands.Bot):
             return await ctx.send("Nothing is playing to pause.")
         
         await player.set_pause(True)
-        await ctx.send("⏯️ Paused.")
+        await ctx.send("<:pause:1412529948861665491> Paused.")
 
     @bot.hybrid_command(name="resume", description="Resume the music")
     async def resume(ctx: commands.Context):
@@ -413,6 +806,6 @@ def setup(bot: commands.Bot):
         
         if player.paused:
             await player.set_pause(False)
-            await ctx.send("▶️ Resumed.")
+            await ctx.send("<:play:1412530216965767349> Resumed.")
         else:
             await ctx.send("Music is not paused.")
