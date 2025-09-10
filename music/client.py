@@ -13,7 +13,8 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
         self.client = client
         self.channel = channel
         # This is the lavalink player abstraction.
-        self.player = self.client.lavalink.player_manager.get(channel.guild.id)
+        self.player = self.client.lavalink.player_manager.get(self.channel.guild.id)
+    # In-memory only; no external stores
 
     async def on_voice_server_update(self, data):
         lavalink_data = {
@@ -33,9 +34,16 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
         """
         Connects to the voice channel.
         """
-                # Store the voice channel id under a distinct key to avoid overwriting the text channel id
+        # Store the voice channel id under a distinct key to avoid overwriting the text channel id
         try:
             self.player.store('voice_channel_id', self.channel.id)
+        except Exception:
+            pass
+        # On (re)connect, clear in-memory state as requested
+        try:
+            self.player.store('queue', [])
+            self.player.store('history', [])
+            self.player.store('loop', 0)
         except Exception:
             pass
         await self.channel.guild.change_voice_state(channel=self.channel, self_mute=self_mute, self_deaf=self_deaf)
@@ -53,4 +61,11 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
 
         await self.channel.guild.change_voice_state(channel=None)
         self.cleanup()
+        # Clear in-memory state on disconnect
+        try:
+            self.player.store('queue', [])
+            self.player.store('history', [])
+            self.player.store('loop', 0)
+        except Exception:
+            pass
         

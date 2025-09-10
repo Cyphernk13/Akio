@@ -13,6 +13,8 @@ COMMANDS_DATA = {
             "`query <question>`: Ask me anything!\n"
             "`@Akio <question>`: Mention me to chat.\n"
             "`reset`: Reset the conversation.\n"
+            "`memory`: View what I know about you.\n"
+            "`forget`: Make me forget everything about you.\n"
             "`say <message>`: Make me say something.\n"
             "`echo <message>`: I'll repeat your message."
         )
@@ -41,6 +43,9 @@ COMMANDS_DATA = {
             "`queue`: View the song queue.\n"
             "`volume <0-1500>`: Adjust the volume.\n"
             "`nowplaying`: See the current track.\n"
+            "`loop`: Toggle loop modes (off/track/queue).\n"
+            "`remove <number>` / `rm <number>`: Remove a specific song from queue.\n"
+            "`clearqueue` / `cq`: Clear the entire queue.\n"
             "`leave`: Disconnect me from VC."
         )
     },

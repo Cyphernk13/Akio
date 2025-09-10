@@ -36,8 +36,11 @@ setup_anime(bot)
 
 @bot.event
 async def on_message(message):
+    # Handle DMs
     if isinstance(message.channel, discord.DMChannel) and message.author != bot.user:
         await message.author.send("Hello! I received your DM.\nI am sorry I don't have permissions to help you in the DM yet but you can always say **akio help** in the server :)")
+    
+    # Process commands first - this is important for the AI module to work correctly
     await bot.process_commands(message)
 
 ##------------>TOKEN<-----------##
