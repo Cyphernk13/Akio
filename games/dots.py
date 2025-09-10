@@ -63,7 +63,7 @@ class DotsAndBoxesButton(discord.ui.Button):
         else:
             # Switch turns
             view.switch_turn()
-            content = f"➡️ {view.current_player.mention}'s turn\n\n"
+            content = f"<:rightchevron:1415213329114464366> {view.current_player.mention}'s turn\n\n"
 
         # Check if game is over
         if view.is_game_over():

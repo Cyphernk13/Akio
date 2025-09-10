@@ -570,7 +570,7 @@ class QueueView(discord.ui.View):
         
         return embed
     
-    @discord.ui.button(emoji="⬅️", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(emoji="<:leftchevron:1415213355383132241>", style=discord.ButtonStyle.secondary, row=0)
     async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Go to previous page."""
         try:
@@ -585,7 +585,7 @@ class QueueView(discord.ui.View):
             logger.error(f"[QueueView] Error in previous_page: {e}")
             await interaction.response.send_message("Error navigating queue.", ephemeral=True)
     
-    @discord.ui.button(emoji="➡️", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(emoji="<:rightchevron:1415213329114464366>", style=discord.ButtonStyle.secondary, row=0)
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Go to next page."""
         try:
