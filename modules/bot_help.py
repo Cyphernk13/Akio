@@ -63,7 +63,9 @@ COMMANDS_DATA = {
             "`flip`: Flip a coin.\n"
             "`8ball [question]`: Ask the magic 8-ball.\n"
             "`draw`: Get a random drawing idea.\n"
-            "`love [user1] [user2]`: Calculate love %."
+            "`love [user1] [user2]`: Calculate love %.\n"
+            "`roast [user]`: Roast yourself or someone else!\n"
+            "`trivia <category>` / `tr <category>`: Start a trivia game!"
         )
     },
     "actions": {
@@ -71,6 +73,41 @@ COMMANDS_DATA = {
         "label": "Actions",
         "description": "Roleplay action commands.",
         "content": ""
+    },
+    "trivia": {
+        "emoji": "🧠",
+        "label": "Trivia",
+        "description": "Test your knowledge with trivia questions!",
+        "content": (
+            "`trivia <category>` / `tr <category>`: Start a trivia game.\n\n"
+            "**Available Categories:**\n"
+            "`general` - General Knowledge\n"
+            "`books` - Entertainment: Books\n"
+            "`film` - Entertainment: Film\n"
+            "`music` - Entertainment: Music\n"
+            "`tv` - Entertainment: Television\n"
+            "`games` - Entertainment: Video Games\n"
+            "`science` - Science & Nature\n"
+            "`computers` - Science: Computers\n"
+            "`math` - Science: Mathematics\n"
+            "`mythology` - Mythology\n"
+            "`sports` - Sports\n"
+            "`geography` - Geography\n"
+            "`history` - History\n"
+            "`politics` - Politics\n"
+            "`art` - Art\n"
+            "`celebrities` - Celebrities\n"
+            "`animals` - Animals\n"
+            "`vehicles` - Vehicles\n"
+            "`anime` - Japanese Anime & Manga\n"
+            "`cartoons` - Cartoon & Animations\n\n"
+            "**Features:**\n"
+            "• Three difficulty levels: Easy, Medium, Hard\n"
+            "• Interactive buttons for answers\n"
+            "• Session tracking (no repeated questions)\n"
+            "• Both multiple choice and true/false questions\n\n"
+            "**Example:** `akio trivia anime`"
+        )
     },
     "utility": {
         "emoji": "🛠️",
@@ -125,7 +162,7 @@ class HelpSelect(Select):
                     reactions = get_cached_reactions()
                 except Exception:
                     reactions = []
-                # Categorize like OwO: Emotes vs Actions
+                # Categorize like OwO: Emotes vs Actions (only supported reactions)
                 emotes = {
                     "bleh","blush","celebrate","cheers","clap","confused","cool","cry","dance","drool",
                     "evillaugh","facepalm","happy","headbang","huh","laugh","love","mad","nervous","no",

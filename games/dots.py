@@ -416,7 +416,7 @@ def setup(bot):
             color=0xffd700
         )
         embed.add_field(
-            name="📊 Stats Tracked",
+            name="<:performance:1417473938681888819> Stats Tracked",
             value="• Games Won\n• Total Boxes Completed\n• Win Rate\n• Average Points per Game",
             inline=False
         )

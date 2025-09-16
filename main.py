@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from scripts.setup import bot
 import discord
 import os
-from modules import commands, dictionary, maths, bot_help, cat
+from modules import commands, dictionary, maths, bot_help, cat, insult, trivia
 from games import rps, tictactoe, love, guess, flip, draw, challenge, dots, roulette, magicball
 from ai import gemini
 from music import music
@@ -17,6 +17,8 @@ dictionary.setup(bot)
 maths.setup(bot)
 cat.setup(bot)
 bot_help.setup(bot)
+insult.setup(bot)
+trivia.setup(bot)
 rps.setup(bot)
 tictactoe.setup(bot)
 love.setup(bot)

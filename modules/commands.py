@@ -15,9 +15,7 @@ def setup(bot):
         "punch": "punches",
         "smack": "smacks",
         "tickle": "tickles",
-        "highfive": "high-fives",
         "brofist": "bro-fists",
-        "salute": "salutes",
         "thumbsup": "gives a thumbs up to",
         "cheers": "cheers for",
         "clap": "claps for",
@@ -29,7 +27,6 @@ def setup(bot):
         "wave": "waves at",
         "laugh": "laughs at",
         "wink": "winks at",
-        "roast": "roasts",
         "confused": "stares at",
         "roll": "rolls around with",
         "stare": "stares at",
@@ -38,7 +35,6 @@ def setup(bot):
         "handhold": "holds hands with",
         "airkiss": "blows a kiss to",
         "headbang": "headbangs with",
-        "boop": "boops",
         "bite": "bites",
         "peek": "peeks at",
         "pinch": "pinches",
@@ -53,14 +49,11 @@ def setup(bot):
         "punch": "{a} throws a punch...🥊",
         "smack": "{a} smacks... 😤",
         "tickle": "{a} hahaha! tickle tickle~ <:hehe_giggle:1404973806141051071>",
-        "highfive": "We got this, {a}! ✋",
         "brofist": "Boom! Bro-fist, {a}! 👊🏻",
-        "salute": "{a} salutes <:6882jjksalute:1404974086983258182>",
         "airkiss": "{a} blows a kiss~ 💋",
         "lick": "{a} licks... >///< <:CH_Lick:1404976447306596472>",
         "nom": "{a} noms~",
         "bite": "{a} bites... chomp!",
-        "boop": "{a} boops~ ✨",
         "peek": "{a} peeks~ <:pikameepeek:1404977012942180402>",
         "pinch": "{a} pinches... ouch! <a:pinchy:1404977207700361366>",
         "poke": "{a} pokes~ 👉🏻",
@@ -78,7 +71,6 @@ def setup(bot):
         "wave": "{a} is waving~ <:GawrGuraWaveBackgroundless:1399581860836802652>",
         "laugh": "{a} is laughing! <a:Hahah:1404978377189752892>",
         "wink": "{a} is winking~ <:ReimuWink:1404975630658965708>",
-        "roast": "{a} thinks they're funny 😈 <:Satania_Laugh:1404977537175781518>",
         "confused": "{a} is thinking hard!!",
         "roll": "{a} is spinning! <a:rabbit_roll:1404981264515076207>",
     }
@@ -88,7 +80,6 @@ def setup(bot):
         "hug": "a hug",
         "pat": "a pat",
         "tickle": "a tickle",
-        "highfive": "a high-five",
         "brofist": "a bro-fist",
     }
 
@@ -104,23 +95,19 @@ def setup(bot):
         "punch": "{a} punches {b}! 🥊",
         "smack": "{a} smacks {b}! 😤",
         "tickle": "{a} tickles {b}! <:hehe_giggle:1404973806141051071>",
-        "highfive": "{a} high-fives {b}! ✋",
         "brofist": "{a} bro-fists {b}! 👊🏻",
-        "salute": "{a} salutes {b} <:6882jjksalute:1404974086983258182>",
         "cheers": "{a} cheers for {b}! 🥂",
         "clap": "{a} claps for {b}! 👏🏻",
         "smug": "{a} smirks at {b} <:02smug:1404974796260900894>",
         "wave": "{a} waves at {b} <:GawrGuraWaveBackgroundless:1399581860836802652>",
         "dance": "{a} dances with {b} <a:CH_JotaroDance:1404975479471214612>",
         "wink": "{a} winks at {b} <:ReimuWink:1404975630658965708>",
-        "roast": "{a} roasts {b} <:Satania_Laugh:1404977537175781518>",
         "handhold": "{a} holds hands with {b} <:SkyHoldingHands:1404983126341714050>",
         "nuzzle": "{a} nuzzles {b} ♡",
         "cuddle": "{a} cuddles with {b} <a:cuddlegirl:1404976197594775663><a:cuddleboy:1404976223347675237>",
         "airkiss": "{a} blows a kiss to {b} 💋",
         "lick": "{a} licks {b} <:CH_Lick:1404976447306596472>",
         "bite": "{a} bites {b}! chomp!",
-        "boop": "{a} boops {b}'s nose ✨",
         "peek": "{a} peeks at {b} <:pikameepeek:1404977012942180402>",
         "poke": "{a} pokes {b} 👉🏻",
         "pinch": "{a} pinches {b} <a:pinchy:1404977207700361366>",
@@ -308,27 +295,11 @@ def setup(bot):
         embed = create_action_embed(ctx, line, gif_url)
         await ctx.send(embed=embed)
 
-    #-------------->KICK COMMAND 🦵🏻<--------------#
-    @bot.hybrid_command(description="Kick someone")
-    async def kick(ctx,member: discord.Member = None):
-        gif_url = get_otaku_gif(resolve_reaction("kick") or "punch")
-        line = build_action_line("punch", ctx.author, member)
-        embed = create_action_embed(ctx, line, gif_url)
-        await ctx.send(embed=embed)
-
     #-------------->KISS COMMAND 💋<--------------#
     @bot.hybrid_command(description="Kiss someone")
     async def kiss(ctx,member: discord.Member = None):
         gif_url = get_otaku_gif(resolve_reaction("kiss") or "kiss")
         line = build_action_line("kiss", ctx.author, member)
-        embed = create_action_embed(ctx, line, gif_url)
-        await ctx.send(embed=embed)
-
-    #-------------->KILL COMMAND 🔪<--------------#
-    @bot.hybrid_command(description="Kill someone")
-    async def kill(ctx,member: discord.Member = None):
-        gif_url = get_otaku_gif(resolve_reaction("kill") or "evillaugh")
-        line = build_action_line("evillaugh", ctx.author, member)
         embed = create_action_embed(ctx, line, gif_url)
         await ctx.send(embed=embed)
 
@@ -340,13 +311,6 @@ def setup(bot):
         line = build_emote_line("blush", ctx.author)
         embed = create_action_embed(ctx, line, gif_url)
         await ctx.send(embed=embed)
-
-    @bot.hybrid_command(description="kuru kuru")
-    async def kuru(ctx):
-        await ctx.send("kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru~ kuru kururin kuru kururin")
-        gif_url = get_otaku_gif(resolve_reaction("kuru") or "roll")
-        if gif_url:
-            await ctx.send(gif_url)
 
     #-------------->SHRUG COMMAND ＼（〇_ｏ）／<--------------#
     @bot.hybrid_command(description="Get a random shrug gif")
@@ -373,15 +337,6 @@ def setup(bot):
         embed = create_action_embed(ctx, line, gif_url)
         await ctx.send(embed=embed)
 
-
-    #-------------->SPIN COMMAND 💫<--------------#
-    @bot.hybrid_command(description="Spin around")
-    async def spin(ctx,member: discord.Member = None):
-        gif_url = get_otaku_gif(resolve_reaction("spin") or "roll")
-        line = build_emote_line("roll", ctx.author)
-        embed = create_action_embed(ctx, line, gif_url)
-        await ctx.send(embed=embed)
-
     #-------------->Tickle COMMAND 💫<--------------#
     @bot.hybrid_command(description="Tickle someone")
     async def tickle(ctx,member: discord.Member = None):
@@ -389,15 +344,6 @@ def setup(bot):
         line = build_action_line("tickle", ctx.author, member)
         embed = create_action_embed(ctx, line, gif_url)
         await ctx.send(embed=embed)
-
-    #-------------->ROAST COMMAND 💫<--------------#
-    @bot.hybrid_command(description="Roast someone")
-    async def roast(ctx,member: discord.Member = None):
-        gif_url = get_otaku_gif(resolve_reaction("roast") or "smug")
-        line = build_action_line("roast", ctx.author, member)
-        embed = create_action_embed(ctx, line, gif_url)
-        await ctx.send(embed=embed)
-
 
     #-------------->DANCE COMMAND 💃🏻<--------------#
     @bot.hybrid_command(description="Get a random dancing gif")
@@ -429,72 +375,6 @@ def setup(bot):
     async def wink(ctx,member: discord.Member = None):
         gif_url = get_otaku_gif(resolve_reaction("wink") or "wink")
         line = build_emote_line("wink", ctx.author)
-        embed = create_action_embed(ctx, line, gif_url)
-        await ctx.send(embed=embed)
-
-    #-------------->CHEER COMMAND 🥳<--------------#
-    @bot.hybrid_command(description="Get a random cheering gif")
-    async def cheer(ctx,member: discord.Member = None):
-        gif_url = get_otaku_gif(resolve_reaction("cheer") or "cheers")
-        line = build_emote_line("cheers", ctx.author)
-        embed = create_action_embed(ctx, line, gif_url)
-        await ctx.send(embed=embed)
-
-
-    #-------------->THINK COMMAND 🤔<--------------#
-    @bot.hybrid_command(description="Get a random thinking gif")
-    async def think(ctx,member: discord.Member = None):
-        gif_url = get_otaku_gif(resolve_reaction("think") or "confused")
-        line = build_emote_line("confused", ctx.author)
-        embed = create_action_embed(ctx, line, gif_url)
-        await ctx.send(embed=embed)
-
-    #-------------->HIGHFIVE COMMAND 🙏🏻<--------------#
-    @bot.hybrid_command(description="Highfive someone")
-    async def highfive(ctx,member: discord.Member = None):
-        gif_url = get_otaku_gif(resolve_reaction("highfive") or "brofist")
-        line = build_action_line("highfive", ctx.author, member)
-        embed = create_action_embed(ctx, line, gif_url)
-        await ctx.send(embed=embed)
-
-    #-------------->SALUTE COMMAND 🫡<--------------#
-    @bot.hybrid_command(description="Salute someone")
-    async def salute(ctx,member: discord.Member = None):
-        gif_url = get_otaku_gif(resolve_reaction("salute") or "thumbsup")
-        line = build_action_line("salute", ctx.author, member)
-        embed = create_action_embed(ctx, line, gif_url)
-        await ctx.send(embed=embed)
-
-    #-------------->APPLAUD COMMAND 👏🏻<--------------#
-    @bot.hybrid_command(description="Get a random applauding gif")
-    async def applaud(ctx,member: discord.Member = None):
-        gif_url = get_otaku_gif(resolve_reaction("applaud") or "clap")
-        line = build_emote_line("clap", ctx.author)
-        embed = create_action_embed(ctx, line, gif_url)
-        await ctx.send(embed=embed)
-
-
-    #-------------->CLAP COMMAND 👏🏻<--------------#
-    @bot.hybrid_command(description="Get a random clapping gif")
-    async def clap(ctx,member: discord.Member = None):
-        gif_url = get_otaku_gif(resolve_reaction("clap") or "clap")
-        line = build_emote_line("clap", ctx.author)
-        embed = create_action_embed(ctx, line, gif_url)
-        await ctx.send(embed=embed)
-
-    #-------------->SMIRK COMMAND 😏<--------------#
-    @bot.hybrid_command(description="Get a random smirk gif")
-    async def smirk(ctx,member: discord.Member = None):
-        gif_url = get_otaku_gif(resolve_reaction("smirk") or "smug")
-        line = build_emote_line("smug", ctx.author)
-        embed = create_action_embed(ctx, line, gif_url)
-        await ctx.send(embed=embed)
-
-    #-------------->BULLY COMMAND <--------------#
-    @bot.hybrid_command(description="Bully someone")
-    async def bully(ctx,member: discord.Member = None):
-        gif_url = get_otaku_gif(resolve_reaction("bully") or "smack")
-        line = build_action_line("smack", ctx.author, member)
         embed = create_action_embed(ctx, line, gif_url)
         await ctx.send(embed=embed)
 
