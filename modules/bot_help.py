@@ -65,7 +65,7 @@ COMMANDS_DATA = {
             "`draw`: Get a random drawing idea.\n"
             "`love [user1] [user2]`: Calculate love %.\n"
             "`roast [user]`: Roast yourself or someone else!\n"
-            "`trivia <category>` / `tr <category>`: Start a trivia game!"
+            "`trivia <category>` / `tr <category>`: Trivia game with skip & difficulty change!"
         )
     },
     "actions": {
@@ -79,33 +79,18 @@ COMMANDS_DATA = {
         "label": "Trivia",
         "description": "Test your knowledge with trivia questions!",
         "content": (
-            "`trivia <category>` / `tr <category>`: Start a trivia game.\n\n"
+            "`trivia <category>` / `tr <category>`: Start trivia game.\n"
+            "`clear` / `trcl`: Stop the current trivia game.\n"
+            "`trivia skip` / `tr skip`: Skip the current question.\n"
+            "`trivia stats [user]` / `tr stats`: View trivia statistics.\n"
+            "`trivia lead` / `tr leaderboard`: View trivia leaderboard.\n\n"
             "**Available Categories:**\n"
-            "`general` - General Knowledge\n"
-            "`books` - Entertainment: Books\n"
-            "`film` - Entertainment: Film\n"
-            "`music` - Entertainment: Music\n"
-            "`tv` - Entertainment: Television\n"
-            "`games` - Entertainment: Video Games\n"
-            "`science` - Science & Nature\n"
-            "`computers` - Science: Computers\n"
-            "`math` - Science: Mathematics\n"
-            "`mythology` - Mythology\n"
-            "`sports` - Sports\n"
-            "`geography` - Geography\n"
-            "`history` - History\n"
-            "`politics` - Politics\n"
-            "`art` - Art\n"
-            "`celebrities` - Celebrities\n"
-            "`animals` - Animals\n"
-            "`vehicles` - Vehicles\n"
-            "`anime` - Japanese Anime & Manga\n"
-            "`cartoons` - Cartoon & Animations\n\n"
-            "**Features:**\n"
-            "• Three difficulty levels: Easy, Medium, Hard\n"
-            "• Interactive buttons for answers\n"
-            "• Session tracking (no repeated questions)\n"
-            "• Both multiple choice and true/false questions\n\n"
+            "`general`, `books`, `film`, `music`, `tv`, `games`, `science`,\n"
+            "`computers`, `math`, `mythology`, `sports`, `geography`,\n"
+            "`history`, `politics`, `art`, `celebrities`, `animals`,\n"
+            "`vehicles`, `anime`, `cartoons`\n\n"
+            "**Difficulty Modes:**\n"
+            "🟢 Easy (1 point) | 🟡 Medium (2 points) | 🔴 Hard (3 points)\n\n"
             "**Example:** `akio trivia anime`"
         )
     },
