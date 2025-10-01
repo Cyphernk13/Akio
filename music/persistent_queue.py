@@ -152,3 +152,18 @@ class PersistentQueue:
         data[gid] = g
         self._write(data)
 
+    def update_track(self, guild_id: int, index: int, track_data: Dict[str, Any]) -> bool:
+        """Update a specific track in the queue with new data (e.g., fresh URI)."""
+        data = self._read()
+        gid = str(guild_id)
+        g = data.get(gid) or {"queue": [], "index": 0, "loop": 0, "shuffle": False, "volume": 70}
+        q = g.get("queue") or []
+        
+        if 0 <= index < len(q):
+            q[index] = track_data
+            g["queue"] = q
+            data[gid] = g
+            self._write(data)
+            return True
+        return False
+

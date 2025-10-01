@@ -15,19 +15,39 @@ import lavalink
 import asyncio
 import random
 import logging
+import os
 from typing import Dict, List, Tuple, Optional
 
 from .client import LavalinkVoiceClient
 from .controls import PlayerControls
 from .persistent_queue import PersistentQueue
 from .utils import URL_REGEX, format_duration
+from .spotify import init_spotify_api, search_spotify_for_track, create_soundcloud_search_query
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+#  Search quality improvements
+SEARCH_ENHANCERS = [
+    "official music video", "official audio", "lyrics", "hq", "high quality",
+    "music video", "official", "hd", "original"
+]
+
 
 def setup(bot: commands.Bot):
+    # Initialize Spotify API for official track data
+    try:
+        client_id = os.getenv('CLIENT_ID')
+        client_secret = os.getenv('CLIENT_SECRET')
+        if client_id and client_secret:
+            init_spotify_api(client_id, client_secret)
+            logger.info("[Music] 🎵 Spotify integration enabled")
+        else:
+            logger.warning("[Music] ⚠️ Spotify credentials not found, using basic SoundCloud search")
+    except Exception as e:
+        logger.error(f"[Music] ❌ Failed to initialize Spotify API: {e}")
+    
     # Initialize persistent queue store
     queue_store = PersistentQueue()
     
@@ -159,39 +179,213 @@ def setup(bot: commands.Bot):
         except Exception as e:
             logger.error(f"[Music] equalizer() failed: {e}")
 
+    def enhance_search_query(query: str) -> str:
+        """Enhance search queries for better results and official content."""
+        # Don't enhance URLs
+        if URL_REGEX.match(query):
+            return query
+            
+        query = query.strip()
+        
+        # Remove common noise words that hurt search quality
+        noise_words = ['lyrics', 'official video', 'music video', 'official', 'audio', 'hd', 'hq']
+        
+        # Clean the query first
+        for noise in noise_words:
+            query = query.replace(noise, '').strip()
+        
+        # Remove extra spaces
+        query = ' '.join(query.split())
+        
+        return query
+
+    def filter_soundcloud_for_official(tracks, query: str):
+        """Smart filtering for SoundCloud to find official/best quality content."""
+        if not tracks or len(tracks) <= 1:
+            return tracks
+            
+        scored_tracks = []
+        query_lower = query.lower()
+        query_words = set(query_lower.split())
+        
+        for track in tracks:
+            score = 0
+            title_lower = track.title.lower()
+            author_lower = getattr(track, 'author', '').lower()
+            
+            # 🏆 HIGH PRIORITY SCORING
+            
+            # Official indicators in author name (major boost)
+            if any(indicator in author_lower for indicator in [
+                'official', 'records', 'music', 'entertainment', 'label', 'vevo'
+            ]):
+                score += 100
+                
+            # Verified/popular account indicators
+            if any(indicator in author_lower for indicator in [
+                'verified', 'artist', 'band', 'singer'
+            ]):
+                score += 50
+            
+            # Title quality indicators
+            if any(indicator in title_lower for indicator in [
+                'official', 'original', 'single', 'album'
+            ]):
+                score += 40
+                
+            # 🎵 CONTENT MATCHING
+            
+            # Perfect author-title matching (likely official)
+            if author_lower in title_lower or title_lower.startswith(author_lower):
+                score += 60
+                
+            # Query word matching in author (artist name match)
+            author_matches = sum(1 for word in query_words if word in author_lower and len(word) > 2)
+            score += author_matches * 30
+            
+            # Query word matching in title
+            title_matches = sum(1 for word in query_words if word in title_lower and len(word) > 2)
+            score += title_matches * 15
+            
+            # Exact or close title matching
+            if query_lower in title_lower:
+                score += 35
+            
+            # 🚫 PENALTY SYSTEM
+            
+            # Heavy penalties for unwanted content
+            penalties = [
+                ('nightcore', -80), ('slowed', -60), ('reverb', -50),
+                ('8d audio', -40), ('bass boosted', -40), ('remix', -30),
+                ('cover', -25), ('karaoke', -60), ('instrumental', -20),
+                ('acoustic', -15), ('live', -10), ('mashup', -30)
+            ]
+            
+            for penalty_word, penalty_score in penalties:
+                if penalty_word in title_lower:
+                    score += penalty_score
+                    
+            # User upload indicators (penalty)
+            if any(bad in author_lower for bad in ['user', 'upload', 'random', '123', 'dj']):
+                score -= 30
+                
+            # Duration-based scoring (2-6 minutes is typical)
+            duration_minutes = (track.duration or 0) / 60000
+            if 2 <= duration_minutes <= 6:
+                score += 20
+            elif duration_minutes > 8:
+                score -= 10  # Very long might be mix/compilation
+                
+            scored_tracks.append((track, score))
+        
+        # Sort by score (highest first)
+        scored_tracks.sort(key=lambda x: x[1], reverse=True)
+        
+        # Log top candidates for debugging
+        logger.info(f"[Music] 🎯 SoundCloud ranking for '{query}':")
+        for i, (track, score) in enumerate(scored_tracks[:3]):
+            logger.info(f"[Music]   {i+1}. [{score}pts] {track.author} - {track.title}")
+        
+        return [track for track, score in scored_tracks]
+
+
+
     async def search_tracks(player: lavalink.DefaultPlayer, query: str, is_url: bool):
-        """Search for tracks with enhanced fallback options and quality prioritization."""
-        # Enhanced search variants for better quality and speed
+        """Smart search: YouTube Music first (official content), SoundCloud fallback."""
         variants = []
         
         if is_url:
-            variants.append(query)
+            # Direct URL handling - Only support SoundCloud and other direct URLs
+            if 'soundcloud.com' in query.lower():
+                # SoundCloud URL - use SoundCloud sources
+                variants.extend([
+                    query,                    # Direct URL first
+                    f'scsearch:{query}',      # SoundCloud fallback
+                ])
+                logger.info(f"[Music] 🎵 Detected SoundCloud URL, using SoundCloud sources")
+            else:
+                # Other URLs (non-YouTube) - try direct first, then SoundCloud fallback
+                variants.extend([
+                    query,                    # Direct URL first
+                    f'scsearch:{query}',      # SoundCloud fallback
+                ])
+                logger.info(f"[Music] 🔗 Direct URL detected, trying direct then SoundCloud")
         else:
-            # Prioritize YouTube Music for better audio quality
-            variants.extend([
-                f'ytmsearch:{query}',     # YouTube Music first (highest quality)
-                f'ytsearch:{query}',      # YouTube second
-                f'scsearch:{query}',      # SoundCloud third
-            ])
+            # 🚀 HYBRID SEARCH: Spotify for official data → SoundCloud for audio
+            logger.info(f"[Music] 🎯 Hybrid Spotify+SoundCloud search for: '{query}'")
+            
+            try:
+                # Step 1: Get official track data from Spotify
+                spotify_data = await search_spotify_for_track(query)
+                
+                if spotify_data:
+                    # Step 2: Create optimized SoundCloud searches using Spotify data
+                    official_query = create_soundcloud_search_query(spotify_data)
+                    logger.info(f"[Music] ✨ Spotify data: {spotify_data['artist']} - {spotify_data['name']}")
+                    
+                    # Multiple SoundCloud strategies with official Spotify data
+                    variants.extend([
+                        f'scsearch:{official_query}',                    # Primary: Exact Spotify match
+                        f'scsearch:{official_query} official',           # With "official" tag
+                        f'scsearch:{spotify_data["name"]} {spotify_data["artist"]}',  # Reversed order
+                        f'scsearch:{query}',                             # Fallback: Original query
+                    ])
+                else:
+                    # Fallback: No Spotify data available
+                    logger.info(f"[Music] ⚠️ No Spotify data, using enhanced SoundCloud search")
+                    enhanced_query = enhance_search_query(query)
+                    variants.extend([
+                        f'scsearch:{enhanced_query} official',
+                        f'scsearch:{enhanced_query}',
+                        f'scsearch:{query}',
+                    ])
+                    
+            except Exception as e:
+                logger.error(f"[Music] ❌ Spotify search failed: {e}")
+                # Emergency fallback to basic SoundCloud search
+                enhanced_query = enhance_search_query(query)
+                variants.extend([f'scsearch:{enhanced_query}'])
         
-        last_exc = None
+        # 🎯 SMART STRATEGY: Try all variants and pick the best overall result
+        all_results = []
+        
         for i, variant in enumerate(variants):
             try:
-                # Reduced delay for faster responses
+                # Small delay between attempts
                 if i > 0:
-                    await asyncio.sleep(0.1)  # Minimal delay between attempts
+                    await asyncio.sleep(0.2)
                     
                 res = await player.node.get_tracks(variant)
                 if res and res.tracks:
-                    logger.info(f"[Music] Found tracks using variant: {variant[:20]}...")
-                    return res
-                    
+                    # Filter and score these results
+                    if not is_url and 'scsearch' in variant:
+                        filtered_tracks = filter_soundcloud_for_official(res.tracks, query)
+                        if filtered_tracks:
+                            # Store the best result from this search strategy
+                            all_results.append((filtered_tracks[0], variant))
+                            logger.info(f"[Music] ✅ Got results from: {variant[:50]}...")
+                    else:
+                        # Direct URL or non-SoundCloud
+                        all_results.append((res.tracks[0], variant))
+                        logger.info(f"[Music] ✅ Got results from: {variant[:50]}...")
+                        
             except Exception as e:
-                last_exc = e
-                logger.warning(f"[Music] Search variant failed: {variant[:20]}... - {e}")
-                
-        if last_exc:
-            raise last_exc
+                logger.warning(f"[Music] Search variant failed: {variant[:50]}... - {e}")
+                continue
+        
+        if all_results:
+            # Return the best result (first one from our prioritized search order)
+            best_track, best_variant = all_results[0]
+            
+            # Create a result object with just the best track
+            class SearchResult:
+                def __init__(self, track):
+                    self.tracks = [track]
+                    self.load_type = 'track'
+                    
+            logger.info(f"[Music] 🏆 Selected best result: {best_track.author} - {best_track.title}")
+            return SearchResult(best_track)
+            
         return None
 
     async def apply_enhanced_audio_settings(player: lavalink.DefaultPlayer):
@@ -255,42 +449,165 @@ def setup(bot: commands.Bot):
         except Exception as e:
             logger.error(f"[Music] Error in idle disconnect scheduler: {e}")
 
+    async def attempt_track_recovery(player: lavalink.DefaultPlayer, guild_id: int) -> bool:
+        """Attempt to recover a failed track intelligently based on original source"""
+        # Check if recovery is already in progress to prevent infinite loops
+        if player.fetch(f'recovery_in_progress_{guild_id}'):
+            logger.info(f"[Music] Recovery already in progress for guild {guild_id}, skipping")
+            return False
+            
+        # Mark recovery as in progress
+        player.store(f'recovery_in_progress_{guild_id}', True)
+        
+        try:
+            current_track = queue_store.current_track(guild_id)
+            if not current_track:
+                return False
+                
+            track_title = current_track.get('title', 'Unknown')
+            track_uri = current_track.get('uri', '')
+            logger.info(f"[Music] 🔧 Attempting recovery for track: {track_title}")
+            
+            # 🎯 SMART RECOVERY: Multiple SoundCloud strategies for official content
+            logger.info(f"[Music] 🎵 Smart SoundCloud recovery for official content")
+            recovery_attempts = [
+                ('scsearch', f"{current_track.get('author', '')} {track_title} official"),  # With artist + official
+                ('scsearch', f"{track_title} official"),                                    # Title + official
+                ('scsearch', f"{current_track.get('author', '')} {track_title} original"), # With artist + original
+                ('scsearch', f"{current_track.get('author', '')} {track_title}"),          # With artist
+                ('scsearch', track_title),                                                  # Title only
+            ]
+                
+            for source, search_query in recovery_attempts:
+                try:
+                    await asyncio.sleep(0.5)  # Delay to prevent spam
+                    search_result = await player.node.get_tracks(f"{source}:{search_query.strip()}")
+                    
+                    if search_result and search_result.tracks:
+                        # Use smart filtering to find the best match
+                        filtered_tracks = filter_soundcloud_for_official(search_result.tracks, search_query)
+                        track = filtered_tracks[0] if filtered_tracks else search_result.tracks[0]
+                        track.requester = current_track.get('requester')
+                        
+                        # Wait for track to actually start before claiming success
+                        await player.play(track)
+                        await asyncio.sleep(1.0)  # Verify it works
+                        
+                        if player.current and player.current.identifier == track.identifier:
+                            # Update queue with working source
+                            current_track['uri'] = track.uri
+                            queue_store.update_track(guild_id, queue_store.get_index(guild_id), current_track)
+                            
+                            source_name = "YouTube" if "yt" in source else "SoundCloud"
+                            logger.info(f"[Music] ✅ Recovery successful with {source_name}: {track.title}")
+                            return True
+                        else:
+                            logger.warning(f"[Music] Track from {source} failed to start properly")
+                        
+                except Exception as e:
+                    logger.debug(f"[Music] Recovery attempt with {source} failed: {e}")
+                    continue
+            
+            logger.warning(f"[Music] ❌ All recovery attempts failed for: {track_title}")
+            return False
+            
+        except Exception as e:
+            logger.error(f"[Music] Recovery process error: {e}")
+            return False
+        finally:
+            # Clear recovery flag
+            player.store(f'recovery_in_progress_{guild_id}', False)
+
     async def play_track_at_index(player: lavalink.DefaultPlayer, guild_id: int) -> bool:
-        """Play track at current index from persistent queue with retry mechanism."""
-        max_retries = 3
-        for attempt in range(max_retries):
+        """Play track at current index from persistent queue with enhanced retry mechanism."""
+        current_track = queue_store.current_track(guild_id)
+        if not current_track:
+            logger.warning(f"[Music] No current track for guild {guild_id}")
+            return False
+
+        track_title = current_track.get('title', 'Unknown')
+        track_uri = current_track.get('uri', '')
+        
+        # Strategy 1: Try direct URI first (for SoundCloud direct URLs only)
+        if track_uri and 'soundcloud.com' in track_uri.lower():
             try:
-                current_track = queue_store.current_track(guild_id)
-                if not current_track:
-                    logger.warning(f"[Music] No current track for guild {guild_id}")
-                    return False
-                
-                # Add small delay for network stability
-                if attempt > 0:
-                    await asyncio.sleep(0.5 * attempt)
-                
-                res = await player.node.get_tracks(current_track.get('uri'))
+                res = await player.node.get_tracks(track_uri)
                 if res and res.tracks:
                     track = res.tracks[0]
                     track.requester = current_track.get('requester')
                     await player.play(track)
-                    
-                    # Store current track info in player for UI updates
                     player.store('current_track_info', current_track)
                     current_index = queue_store.get_index(guild_id)
-                    logger.info(f"[Music] Playing track at index {current_index}: {current_track.get('title')} for guild {guild_id}")
+                    logger.info(f"[Music] ✅ Playing direct SoundCloud track at index {current_index}: {track_title}")
                     return True
-                else:
-                    logger.warning(f"[Music] No tracks found for URI: {current_track.get('uri')} (attempt {attempt + 1})")
-                    
             except Exception as e:
-                logger.error(f"[Music] Error playing current track for guild {guild_id} (attempt {attempt + 1}): {e}")
-                if attempt == max_retries - 1:
-                    # On final failure, try to skip to next track
-                    logger.info(f"[Music] Auto-skipping failed track for guild {guild_id}")
-                    return await skip_to_next(player, guild_id)
-        
-        return False
+                logger.warning(f"[Music] Direct SoundCloud URI failed for {track_title}: {e}")
+
+        # Strategy 2: Smart source selection based on original track type
+        try:
+            search_query = track_title
+            if current_track.get('author'):
+                search_query = f"{current_track.get('author')} {track_title}"
+            
+            logger.info(f"[Music] 🔍 Smart search for: {search_query}")
+            
+            # 🎯 SIMPLE SELECTION: SoundCloud only (YouTube completely broken)
+            search_attempts = [
+                ('scsearch', 'SoundCloud'),       # SoundCloud only - working reliably
+            ]
+            logger.info(f"[Music] 🎵 SoundCloud-only search (YouTube broken)")
+            
+            for search_type, source_name in search_attempts:
+                try:
+                    await asyncio.sleep(0.3)  # Prevent rapid API calls
+                    
+                    search_result = await player.node.get_tracks(f"{search_type}:{search_query}")
+                    
+                    if search_result and search_result.tracks:
+                        # Use smart filtering to find the best official content
+                        filtered_tracks = filter_soundcloud_for_official(search_result.tracks, search_query)
+                        track = filtered_tracks[0] if filtered_tracks else search_result.tracks[0]
+                        track.requester = current_track.get('requester')
+                        
+                        # Play the track
+                        await player.play(track)
+                        
+                        # Update the stored track with new working URI
+                        current_track['uri'] = track.uri
+                        queue_store.update_track(guild_id, queue_store.get_index(guild_id), current_track)
+                        
+                        player.store('current_track_info', current_track)
+                        current_index = queue_store.get_index(guild_id)
+                        logger.info(f"[Music] ✅ Playing track from {source_name} at index {current_index}: {track.title}")
+                        return True
+                        
+                except Exception as e:
+                    logger.debug(f"[Music] {source_name} search failed for {track_title}: {e}")
+                    continue
+                    
+            logger.warning(f"[Music] ❌ All search sources failed for: {search_query}")
+                
+        except Exception as e:
+            logger.error(f"[Music] Enhanced search failed for {track_title}: {e}")
+
+        # Strategy 3: Final fallback - try direct URI one more time with delay
+        if track_uri:
+            try:
+                await asyncio.sleep(1)  # Give network a moment
+                res = await player.node.get_tracks(track_uri)
+                if res and res.tracks:
+                    track = res.tracks[0]
+                    track.requester = current_track.get('requester')
+                    await player.play(track)
+                    player.store('current_track_info', current_track)
+                    logger.info(f"[Music] ✅ Playing fallback URI for: {track_title}")
+                    return True
+            except Exception as e:
+                logger.error(f"[Music] Final URI attempt failed for {track_title}: {e}")
+
+        # All strategies failed - skip to next track
+        logger.error(f"[Music] ❌ All playback attempts failed for: {track_title}")
+        return await skip_to_next(player, guild_id)
 
     async def skip_to_next(player: lavalink.DefaultPlayer, guild_id: int) -> bool:
         """Skip to next track based on current index and loop mode."""
@@ -452,8 +769,9 @@ def setup(bot: commands.Bot):
         queue_length = len(queue)
         loop_mode = queue_store.get_guild(guild_id).get('loop', 0)
         
-        # Build embed with enhanced styling
+        # Build embed with clean styling
         requester = channel.guild.get_member(getattr(track, 'requester', 0))
+        
         embed = discord.Embed(
             title="<:music:1415162611942686740> MUSIC PANEL",
             description=f"<a:Milk10:1399578671941156996> **[{track.title}]({track.uri})**",
@@ -592,10 +910,23 @@ def setup(bot: commands.Bot):
             except Exception as e:
                 logger.error(f"[Music] Failed to apply audio settings on start: {e}")
             
-            await send_now_playing_embed(player, guild_id)
+            # 🚫 ANTI-SPAM: Wait and verify track is actually stable before showing panel
+            await asyncio.sleep(3.0)  # Wait 3 seconds to see if track will fail
             
-            # Preload next track for seamless playback
-            asyncio.create_task(preload_next_track(player, guild_id))
+            # Only send panel if track is still playing and stable (and not in recovery)
+            recovery_in_progress = player.fetch(f'recovery_in_progress_{guild_id}')
+            if player.current and player.is_playing and not recovery_in_progress:
+                # Double-check no existing panel exists
+                old_message_id = player.fetch('message_id')
+                if not old_message_id:  # Only send if no panel exists
+                    await send_now_playing_embed(player, guild_id)
+                    # Preload next track for seamless playback
+                    asyncio.create_task(preload_next_track(player, guild_id))
+                else:
+                    logger.info(f"[Music] Panel already exists, skipping duplicate")
+            else:
+                logger.info(f"[Music] Skipping NP panel - track failed, not playing, or in recovery")
+            
             return
 
         # Track End
@@ -610,8 +941,9 @@ def setup(bot: commands.Bot):
             
             await delete_old_np_message(player)
             
-            # Handle only relevant reasons; ignore manual stop/replace
-            if reason in {'replaced', 'stopped'}:
+            # Handle only relevant reasons; ignore manual stop/replace and LOADFAILED (already handled by TrackExceptionEvent)
+            if reason in {'replaced', 'stopped', 'loadfailed'}:
+                logger.info(f"[Music] Ignoring TrackEndEvent with reason '{reason}' - already handled")
                 return
                 
             # Serialize end-handling to avoid races
@@ -631,21 +963,66 @@ def setup(bot: commands.Bot):
                     logger.error(f"[Music] Error during TrackEnd handling: {e}")
             return
 
-        # Track Stuck or Exception -> skip to next gracefully
+        # Track Stuck or Exception -> attempt recovery before skipping
         if event_name in {'TrackStuckEvent', 'TrackExceptionEvent'}:
             player = getattr(event, 'player', None)
             if not player:
                 return
                 
             guild_id = player.guild_id
-            logger.warning(f"[Music] {event_name}: guild={guild_id}; attempting to skip to next")
+            exception_info = getattr(event, 'exception', 'Unknown error')
+            logger.warning(f"[Music] {event_name}: guild={guild_id}, error={exception_info}")
+            
+            # AGGRESSIVE CIRCUIT BREAKER - Completely disable recovery when YouTube is broken
+            circuit_breaker_key = f'circuit_breaker_{guild_id}'
+            circuit_failures = player.fetch(circuit_breaker_key) or 0
+            
+            # Much more aggressive: Only 2 failures before circuit breaker activates
+            if circuit_failures >= 2:
+                logger.warning(f"[Music] 🚫 CIRCUIT BREAKER ACTIVE for guild {guild_id} - All sources failing, skipping immediately")
+                player.store(circuit_breaker_key, circuit_failures + 1)  # Continue counting failures
+                await skip_to_next(player, guild_id)
+                return
+            
+            # Implement per-track recovery limiting - ONLY 1 attempt per track
+            recovery_count_key = f'recovery_attempts_{guild_id}_{getattr(player.current, "identifier", "unknown")}'
+            recovery_count = player.fetch(recovery_count_key) or 0
+            
+            if recovery_count >= 1:  # Only 1 recovery attempt per track
+                logger.warning(f"[Music] Maximum recovery attempts (1) reached for current track, skipping")
+                player.store(recovery_count_key, 0)  # Reset counter
+                player.store(circuit_breaker_key, circuit_failures + 1)  # Increment circuit breaker
+                await skip_to_next(player, guild_id)
+                return
+            
+            # Check if recovery is already in progress (additional safeguard)
+            if player.fetch(f'recovery_in_progress_{guild_id}'):
+                logger.warning(f"[Music] Recovery already in progress for guild {guild_id}, skipping duplicate attempt")
+                return
             
             lock = get_lock(guild_id)
             async with lock:
                 try:
-                    await skip_to_next(player, guild_id)
+                    # Increment recovery attempt counter BEFORE attempting recovery
+                    player.store(recovery_count_key, recovery_count + 1)
+                    
+                    # Try to recover the current track
+                    recovery_success = await attempt_track_recovery(player, guild_id)
+                    
+                    if recovery_success:
+                        # Reset circuit breaker on successful recovery
+                        player.store(circuit_breaker_key, max(0, circuit_failures - 1))  # Reduce failures
+                        logger.info(f"[Music] ✅ Recovery successful, circuit breaker reduced to {max(0, circuit_failures - 1)}")
+                    else:
+                        # If recovery fails, skip to next track and increment circuit breaker
+                        logger.warning(f"[Music] ❌ Recovery failed, incrementing circuit breaker")
+                        player.store(circuit_breaker_key, circuit_failures + 1)
+                        await skip_to_next(player, guild_id)
+                        
                 except Exception as e:
                     logger.error(f"[Music] Failed to recover from {event_name}: {e}")
+                    player.store(circuit_breaker_key, circuit_failures + 1)  # Increment circuit breaker on error
+                    await skip_to_next(player, guild_id)
             return
 
     # Register event hook
@@ -680,6 +1057,16 @@ def setup(bot: commands.Bot):
 
                 query = query.strip('<>')
                 is_url = URL_REGEX.match(query) is not None
+
+                # 🚫 Block YouTube URLs completely 
+                if is_url and any(domain in query.lower() for domain in ['youtube.com', 'youtu.be', 'music.youtube.com', 'yt.be']):
+                    embed = discord.Embed(
+                        title="🚫 YouTube Not Supported",
+                        description="Hey there! YouTube has blocked access to their music content, so I can't play YouTube links anymore. 😔\n\n**Instead, try searching by song name!** For example:\n`akio play naruto silhouette` instead of a YouTube link.\n\nThis actually works better and finds higher quality audio! 🎵",
+                        color=discord.Color.red()
+                    )
+                    embed.set_footer(text="💡 Text searches use SoundCloud which has better reliability!")
+                    return await ctx.send(embed=embed)
 
                 temp_msg = await ctx.send(
                     embed=discord.Embed(

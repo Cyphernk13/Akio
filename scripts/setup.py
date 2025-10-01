@@ -16,17 +16,8 @@ async def on_ready():
     """Fires when the bot is ready and handles all post-login setup."""
     print(f'Logged in as {bot.user.name}')
     
-    # Initialize the Lavalink client
+    # Initialize the Lavalink client (nodes will be added by the enhanced node manager)
     bot.lavalink = lavalink.Client(bot.user.id)
-    
-    # Primary working node from your old setup
-    bot.lavalink.add_node(
-        host='173.249.0.115',
-        port=13592,
-        password='https://camming.xyz',
-        region='us-central',
-        ssl=False
-    )
     print("Lavalink client initialized.")
 
     # Bootstrap enhanced node manager for 24/7 resilience
