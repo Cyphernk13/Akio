@@ -251,19 +251,25 @@ def setup(bot: commands.Bot):
             if query_lower in title_lower:
                 score += 35
             
-            # 🚫 PENALTY SYSTEM
+            # 🚫 PENALTY SYSTEM - FIXED TO PRIORITIZE ORIGINAL CONTENT
             
-            # Heavy penalties for unwanted content
-            penalties = [
-                ('nightcore', -80), ('slowed', -60), ('reverb', -50),
-                ('8d audio', -40), ('bass boosted', -40), ('remix', -30),
-                ('cover', -25), ('karaoke', -60), ('instrumental', -20),
-                ('acoustic', -15), ('live', -10), ('mashup', -30)
+            # SEVERE penalties for unwanted content (these should NEVER win)
+            severe_penalties = [
+                ('remix', -150), ('cover', -120), ('nightcore', -100),
+                ('slowed', -100), ('reverb', -90), ('sped up', -90),
+                ('8d audio', -80), ('bass boosted', -80), ('karaoke', -150),
+                ('instrumental', -60), ('acoustic version', -50), 
+                ('live version', -40), ('mashup', -100), ('bootleg', -120),
+                ('edit', -80), ('unofficial', -100)
             ]
             
-            for penalty_word, penalty_score in penalties:
+            for penalty_word, penalty_score in severe_penalties:
                 if penalty_word in title_lower:
                     score += penalty_score
+                    
+            # Additional penalties for remix indicators in author names
+            if any(word in author_lower for word in ['remix', 'edit', 'bootleg', 'cover']):
+                score -= 100
                     
             # User upload indicators (penalty)
             if any(bad in author_lower for bad in ['user', 'upload', 'random', '123', 'dj']):
@@ -374,8 +380,27 @@ def setup(bot: commands.Bot):
                 continue
         
         if all_results:
-            # Return the best result (first one from our prioritized search order)
-            best_track, best_variant = all_results[0]
+            # 🎯 FINAL QUALITY CHECK: Prefer original tracks over remixes/covers
+            original_tracks = []
+            remix_tracks = []
+            
+            for track, variant in all_results:
+                title_lower = track.title.lower()
+                author_lower = track.author.lower()
+                
+                # Check if this is likely an original track
+                is_remix = any(word in title_lower or word in author_lower for word in [
+                    'remix', 'cover', 'edit', 'bootleg', 'unofficial', 'nightcore', 'slowed'
+                ])
+                
+                if is_remix:
+                    remix_tracks.append((track, variant))
+                else:
+                    original_tracks.append((track, variant))
+            
+            # Prefer original tracks, but fall back to remixes if no originals found
+            final_candidates = original_tracks if original_tracks else remix_tracks
+            best_track, best_variant = final_candidates[0]
             
             # Create a result object with just the best track
             class SearchResult:
@@ -383,7 +408,8 @@ def setup(bot: commands.Bot):
                     self.tracks = [track]
                     self.load_type = 'track'
                     
-            logger.info(f"[Music] 🏆 Selected best result: {best_track.author} - {best_track.title}")
+            track_type = "Original" if original_tracks else "Remix/Cover"
+            logger.info(f"[Music] 🏆 Selected best {track_type} result: {best_track.author} - {best_track.title}")
             return SearchResult(best_track)
             
         return None

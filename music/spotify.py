@@ -125,15 +125,26 @@ class SpotifyAPI:
     
     def _clean_search_query(self, query: str) -> str:
         """Clean and optimize search query for Spotify."""
-        # Remove common noise words
-        noise_words = ['official', 'music video', 'lyrics', 'hd', 'hq', 'audio']
+        # Remove common noise words and anime/show references that confuse Spotify
+        noise_words = ['official', 'music video', 'lyrics', 'hd', 'hq', 'audio', 'naruto', 'opening', 'op1', 'op']
         
         query_lower = query.lower()
         for noise in noise_words:
             query_lower = query_lower.replace(noise, '')
         
-        # Clean up extra spaces
-        return ' '.join(query_lower.strip().split())
+        # Clean up extra spaces and normalize
+        cleaned = ' '.join(query_lower.strip().split())
+        
+        # For artist + song queries, try to preserve the structure better
+        # This helps with queries like "big dawgs hanumankind" -> "hanumankind big dawgs"
+        words = cleaned.split()
+        if len(words) >= 2 and len(words) <= 4:
+            # Try different arrangements to improve Spotify matching
+            original = cleaned
+            reversed_query = ' '.join(reversed(words))
+            return f"{original} OR {reversed_query}"
+        
+        return cleaned
     
     def _parse_track_data(self, track: Dict) -> Optional[Dict]:
         """Parse Spotify track data into structured format."""
@@ -192,16 +203,61 @@ class SpotifyAPI:
             return False
     
     async def get_best_match(self, query: str) -> Optional[Dict]:
-        """Get the single best match for a search query."""
-        results = await self.search_track(query, limit=5)
+        """Get the single best match for a search query with improved relevance scoring."""
+        results = await self.search_track(query, limit=10)  # Get more results for better matching
         if not results:
             return None
-            
-        # Sort by official status and popularity
-        results.sort(key=lambda x: (x["is_official"], x["popularity"]), reverse=True)
         
-        best_match = results[0]
-        logger.info(f"[Spotify] 🎯 Best match: {best_match['artist']} - {best_match['name']}")
+        # Score each result based on relevance to the original query
+        query_lower = query.lower().strip()
+        query_words = set(query_lower.split())
+        
+        scored_results = []
+        for result in results:
+            score = 0
+            
+            # Base scores
+            if result["is_official"]:
+                score += 50
+            score += result["popularity"] / 10  # Scale popularity
+            
+            # Relevance scoring - how well does this match the query?
+            artist_lower = result["artist"].lower()
+            track_lower = result["name"].lower()
+            
+            # Exact word matches in artist name (very important)
+            artist_matches = sum(1 for word in query_words if word in artist_lower and len(word) > 2)
+            score += artist_matches * 40
+            
+            # Exact word matches in track name
+            track_matches = sum(1 for word in query_words if word in track_lower and len(word) > 2)
+            score += track_matches * 30
+            
+            # Partial matches
+            for word in query_words:
+                if len(word) > 2:
+                    if word in artist_lower:
+                        score += 15
+                    if word in track_lower:
+                        score += 10
+            
+            # Bonus for query being contained in result
+            if query_lower in track_lower or query_lower in artist_lower:
+                score += 25
+                
+            scored_results.append((result, score))
+        
+        # Sort by score (highest first)
+        scored_results.sort(key=lambda x: x[1], reverse=True)
+        
+        best_match = scored_results[0][0]
+        best_score = scored_results[0][1]
+        
+        logger.info(f"[Spotify] 🎯 Best match: {best_match['artist']} - {best_match['name']} (Score: {best_score})")
+        
+        # Log top 3 for debugging
+        for i, (result, score) in enumerate(scored_results[:3]):
+            logger.debug(f"[Spotify]   {i+1}. [{score}pts] {result['artist']} - {result['name']}")
         
         return best_match
 
