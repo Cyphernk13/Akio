@@ -32,6 +32,7 @@ class NodeInfo:
     health_failures: int = 0
     is_healthy: bool = True
     latency: float = 999.0
+    supports_youtube: Optional[bool] = None
     
     @property
     def score(self) -> float:
@@ -136,6 +137,49 @@ class EnhancedLavalinkNodeManager:
             pass
         return {}
 
+    async def _probe_youtube_search(self, node_info: NodeInfo) -> bool:
+        """Return True if the node can load `ytsearch:` identifiers.
+
+        Lavalink v4 commonly exposes `/v4/loadtracks`; older versions use `/loadtracks`.
+        """
+        scheme = 'https' if node_info.secure else 'http'
+        base = f"{scheme}://{node_info.host}:{node_info.port}"
+        session = await self._get_session()
+
+        # A stable query that should nearly always return results.
+        identifier = "ytsearch:never gonna give you up"
+
+        for path in ("/v4/loadtracks", "/loadtracks"):
+            url = f"{base}{path}"
+            try:
+                async with session.get(
+                    url,
+                    headers={"Authorization": node_info.password},
+                    params={"identifier": identifier},
+                    timeout=aiohttp.ClientTimeout(total=10),
+                ) as resp:
+                    if resp.status != 200:
+                        continue
+
+                    payload = await resp.json()
+                    load_type = str(payload.get("loadType") or payload.get("load_type") or "").lower()
+
+                    # v4: {loadType, data:[...]}; v3: {loadType, tracks:[...]}
+                    tracks = payload.get("data")
+                    if tracks is None:
+                        tracks = payload.get("tracks")
+
+                    if load_type in {"search", "track", "playlist"}:
+                        return bool(tracks)
+                    if load_type in {"no_matches", "nomatches"}:
+                        return False
+                    if load_type in {"load_failed", "failed"}:
+                        return False
+            except Exception:
+                continue
+
+        return False
+
     def _existing_endpoints(self) -> set[Tuple[str, int, bool]]:
         """Get existing node endpoints to avoid duplicates."""
         endpoints: set[Tuple[str, int, bool]] = set()
@@ -215,6 +259,14 @@ class EnhancedLavalinkNodeManager:
             
             # Test connectivity before adding
             if await self.check_node_health(node_info):
+                # Provider requirement: only use nodes that actually support YouTube search.
+                if node_info.supports_youtube is None:
+                    node_info.supports_youtube = await self._probe_youtube_search(node_info)
+
+                if not node_info.supports_youtube:
+                    logger.info(f"[NodeManager] Skipped node without YouTube support: {identifier}")
+                    continue
+
                 try:
                     # Add to lavalink client
                     client.add_node(
@@ -257,11 +309,11 @@ class EnhancedLavalinkNodeManager:
             performance_bonus = 0
             
             # Favor nodes with lower response times (faster)
-            if node.response_time < 50:  # Very fast
+            if node.latency < 50:  # Very fast
                 performance_bonus -= 0.2
-            elif node.response_time < 100:  # Fast
+            elif node.latency < 100:  # Fast
                 performance_bonus -= 0.1
-            elif node.response_time > 300:  # Slow
+            elif node.latency > 300:  # Slow
                 performance_bonus += 0.3
                 
             # Favor nodes with fewer health failures
@@ -284,8 +336,10 @@ class EnhancedLavalinkNodeManager:
         healthy_nodes.sort(key=lambda x: getattr(x, 'performance_score', x.score))
         best_node = healthy_nodes[0]
         
-        logger.info(f"[NodeManager] 🚀 Selected optimal node: {best_node.identifier} "
-                   f"(response: {best_node.response_time}ms, failures: {node.health_failures})")
+        logger.info(
+            f"[NodeManager] 🚀 Selected optimal node: {best_node.identifier} "
+            f"(latency: {best_node.latency:.0f}ms, failures: {best_node.health_failures})"
+        )
         return best_node.identifier
 
     async def handle_node_failure(self, failed_node_id: str):

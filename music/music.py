@@ -22,7 +22,6 @@ from .client import LavalinkVoiceClient
 from .controls import PlayerControls
 from .persistent_queue import PersistentQueue
 from .utils import URL_REGEX, format_duration
-from .spotify import init_spotify_api, search_spotify_for_track, create_soundcloud_search_query
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -36,17 +35,7 @@ SEARCH_ENHANCERS = [
 
 
 def setup(bot: commands.Bot):
-    # Initialize Spotify API for official track data
-    try:
-        client_id = os.getenv('CLIENT_ID')
-        client_secret = os.getenv('CLIENT_SECRET')
-        if client_id and client_secret:
-            init_spotify_api(client_id, client_secret)
-            logger.info("[Music] 🎵 Spotify integration enabled")
-        else:
-            logger.warning("[Music] ⚠️ Spotify credentials not found, using basic SoundCloud search")
-    except Exception as e:
-        logger.error(f"[Music] ❌ Failed to initialize Spotify API: {e}")
+    # YouTube-only mode (no Spotify/SoundCloud integrations).
     
     # Initialize persistent queue store
     queue_store = PersistentQueue()
@@ -180,27 +169,31 @@ def setup(bot: commands.Bot):
             logger.error(f"[Music] equalizer() failed: {e}")
 
     def enhance_search_query(query: str) -> str:
-        """Enhance search queries for better results and official content."""
-        # Don't enhance URLs
+        """Normalize a user query for YouTube search without changing intent."""
         if URL_REGEX.match(query):
             return query
-            
-        query = query.strip()
-        
-        # Remove common noise words that hurt search quality
-        noise_words = ['lyrics', 'official video', 'music video', 'official', 'audio', 'hd', 'hq']
-        
-        # Clean the query first
-        for noise in noise_words:
-            query = query.replace(noise, '').strip()
-        
-        # Remove extra spaces
-        query = ' '.join(query.split())
-        
-        return query
+        return ' '.join(query.strip().split())
 
-    def filter_soundcloud_for_official(tracks, query: str):
-        """Smart filtering for SoundCloud to find official/best quality content."""
+    def url_to_search_query(url: str) -> str:
+        """Best-effort conversion of a URL into a human search query.
+
+        Used to keep the `play` command behaving reasonably even if the user
+        pastes a non-YouTube URL after switching providers to YouTube.
+        """
+        try:
+            # Strip protocol and query params
+            cleaned = url.split('?', 1)[0].split('#', 1)[0]
+            # Keep last 1-2 path segments (often contains the title)
+            parts = [p for p in cleaned.replace('\\', '/').split('/') if p]
+            tail = ' '.join(parts[-2:]) if len(parts) >= 2 else (parts[-1] if parts else '')
+            tail = tail.replace('-', ' ').replace('_', ' ')
+            tail = ' '.join(tail.split())
+            return tail.strip()
+        except Exception:
+            return ""
+
+    def filter_youtube_for_official(tracks, query: str):
+        """Smart filtering for YouTube to find official/best quality content."""
         if not tracks or len(tracks) <= 1:
             return tracks
             
@@ -288,7 +281,7 @@ def setup(bot: commands.Bot):
         scored_tracks.sort(key=lambda x: x[1], reverse=True)
         
         # Log top candidates for debugging
-        logger.info(f"[Music] 🎯 SoundCloud ranking for '{query}':")
+        logger.info(f"[Music] 🎯 YouTube ranking for '{query}':")
         for i, (track, score) in enumerate(scored_tracks[:3]):
             logger.info(f"[Music]   {i+1}. [{score}pts] {track.author} - {track.title}")
         
@@ -296,123 +289,27 @@ def setup(bot: commands.Bot):
 
 
 
+    YOUTUBE_DOMAINS = ('youtube.com', 'youtu.be', 'music.youtube.com')
+
+    def is_youtube_url(url: str) -> bool:
+        u = (url or '').lower()
+        return any(d in u for d in YOUTUBE_DOMAINS)
+
     async def search_tracks(player: lavalink.DefaultPlayer, query: str, is_url: bool):
-        """Smart search: YouTube Music first (official content), SoundCloud fallback."""
-        variants = []
-        
+        """YouTube-only search.
+
+        - URL: only YouTube URLs are accepted and loaded directly.
+        - Text: one `ytsearch:` call; caller uses first result.
+        """
         if is_url:
-            # Direct URL handling - Only support SoundCloud and other direct URLs
-            if 'soundcloud.com' in query.lower():
-                # SoundCloud URL - use SoundCloud sources
-                variants.extend([
-                    query,                    # Direct URL first
-                    f'scsearch:{query}',      # SoundCloud fallback
-                ])
-                logger.info(f"[Music] 🎵 Detected SoundCloud URL, using SoundCloud sources")
-            else:
-                # Other URLs (non-YouTube) - try direct first, then SoundCloud fallback
-                variants.extend([
-                    query,                    # Direct URL first
-                    f'scsearch:{query}',      # SoundCloud fallback
-                ])
-                logger.info(f"[Music] 🔗 Direct URL detected, trying direct then SoundCloud")
-        else:
-            # 🚀 HYBRID SEARCH: Spotify for official data → SoundCloud for audio
-            logger.info(f"[Music] 🎯 Hybrid Spotify+SoundCloud search for: '{query}'")
-            
-            try:
-                # Step 1: Get official track data from Spotify
-                spotify_data = await search_spotify_for_track(query)
-                
-                if spotify_data:
-                    # Step 2: Create optimized SoundCloud searches using Spotify data
-                    official_query = create_soundcloud_search_query(spotify_data)
-                    logger.info(f"[Music] ✨ Spotify data: {spotify_data['artist']} - {spotify_data['name']}")
-                    
-                    # Multiple SoundCloud strategies with official Spotify data
-                    variants.extend([
-                        f'scsearch:{official_query}',                    # Primary: Exact Spotify match
-                        f'scsearch:{official_query} official',           # With "official" tag
-                        f'scsearch:{spotify_data["name"]} {spotify_data["artist"]}',  # Reversed order
-                        f'scsearch:{query}',                             # Fallback: Original query
-                    ])
-                else:
-                    # Fallback: No Spotify data available
-                    logger.info(f"[Music] ⚠️ No Spotify data, using enhanced SoundCloud search")
-                    enhanced_query = enhance_search_query(query)
-                    variants.extend([
-                        f'scsearch:{enhanced_query} official',
-                        f'scsearch:{enhanced_query}',
-                        f'scsearch:{query}',
-                    ])
-                    
-            except Exception as e:
-                logger.error(f"[Music] ❌ Spotify search failed: {e}")
-                # Emergency fallback to basic SoundCloud search
-                enhanced_query = enhance_search_query(query)
-                variants.extend([f'scsearch:{enhanced_query}'])
-        
-        # 🎯 SMART STRATEGY: Try all variants and pick the best overall result
-        all_results = []
-        
-        for i, variant in enumerate(variants):
-            try:
-                # Small delay between attempts
-                if i > 0:
-                    await asyncio.sleep(0.2)
-                    
-                res = await player.node.get_tracks(variant)
-                if res and res.tracks:
-                    # Filter and score these results
-                    if not is_url and 'scsearch' in variant:
-                        filtered_tracks = filter_soundcloud_for_official(res.tracks, query)
-                        if filtered_tracks:
-                            # Store the best result from this search strategy
-                            all_results.append((filtered_tracks[0], variant))
-                            logger.info(f"[Music] ✅ Got results from: {variant[:50]}...")
-                    else:
-                        # Direct URL or non-SoundCloud
-                        all_results.append((res.tracks[0], variant))
-                        logger.info(f"[Music] ✅ Got results from: {variant[:50]}...")
-                        
-            except Exception as e:
-                logger.warning(f"[Music] Search variant failed: {variant[:50]}... - {e}")
-                continue
-        
-        if all_results:
-            # 🎯 FINAL QUALITY CHECK: Prefer original tracks over remixes/covers
-            original_tracks = []
-            remix_tracks = []
-            
-            for track, variant in all_results:
-                title_lower = track.title.lower()
-                author_lower = track.author.lower()
-                
-                # Check if this is likely an original track
-                is_remix = any(word in title_lower or word in author_lower for word in [
-                    'remix', 'cover', 'edit', 'bootleg', 'unofficial', 'nightcore', 'slowed'
-                ])
-                
-                if is_remix:
-                    remix_tracks.append((track, variant))
-                else:
-                    original_tracks.append((track, variant))
-            
-            # Prefer original tracks, but fall back to remixes if no originals found
-            final_candidates = original_tracks if original_tracks else remix_tracks
-            best_track, best_variant = final_candidates[0]
-            
-            # Create a result object with just the best track
-            class SearchResult:
-                def __init__(self, track):
-                    self.tracks = [track]
-                    self.load_type = 'track'
-                    
-            track_type = "Original" if original_tracks else "Remix/Cover"
-            logger.info(f"[Music] 🏆 Selected best {track_type} result: {best_track.author} - {best_track.title}")
-            return SearchResult(best_track)
-            
-        return None
+            if not is_youtube_url(query):
+                return None
+            return await player.node.get_tracks(query)
+
+        normalized = enhance_search_query(query)
+        if not normalized:
+            return None
+        return await player.node.get_tracks(f"ytsearch:{normalized}")
 
     async def apply_enhanced_audio_settings(player: lavalink.DefaultPlayer):
         """Apply enhanced audio settings for YouTube-like quality"""
@@ -475,74 +372,7 @@ def setup(bot: commands.Bot):
         except Exception as e:
             logger.error(f"[Music] Error in idle disconnect scheduler: {e}")
 
-    async def attempt_track_recovery(player: lavalink.DefaultPlayer, guild_id: int) -> bool:
-        """Attempt to recover a failed track intelligently based on original source"""
-        # Check if recovery is already in progress to prevent infinite loops
-        if player.fetch(f'recovery_in_progress_{guild_id}'):
-            logger.info(f"[Music] Recovery already in progress for guild {guild_id}, skipping")
-            return False
-            
-        # Mark recovery as in progress
-        player.store(f'recovery_in_progress_{guild_id}', True)
-        
-        try:
-            current_track = queue_store.current_track(guild_id)
-            if not current_track:
-                return False
-                
-            track_title = current_track.get('title', 'Unknown')
-            track_uri = current_track.get('uri', '')
-            logger.info(f"[Music] 🔧 Attempting recovery for track: {track_title}")
-            
-            # 🎯 SMART RECOVERY: Multiple SoundCloud strategies for official content
-            logger.info(f"[Music] 🎵 Smart SoundCloud recovery for official content")
-            recovery_attempts = [
-                ('scsearch', f"{current_track.get('author', '')} {track_title} official"),  # With artist + official
-                ('scsearch', f"{track_title} official"),                                    # Title + official
-                ('scsearch', f"{current_track.get('author', '')} {track_title} original"), # With artist + original
-                ('scsearch', f"{current_track.get('author', '')} {track_title}"),          # With artist
-                ('scsearch', track_title),                                                  # Title only
-            ]
-                
-            for source, search_query in recovery_attempts:
-                try:
-                    await asyncio.sleep(0.5)  # Delay to prevent spam
-                    search_result = await player.node.get_tracks(f"{source}:{search_query.strip()}")
-                    
-                    if search_result and search_result.tracks:
-                        # Use smart filtering to find the best match
-                        filtered_tracks = filter_soundcloud_for_official(search_result.tracks, search_query)
-                        track = filtered_tracks[0] if filtered_tracks else search_result.tracks[0]
-                        track.requester = current_track.get('requester')
-                        
-                        # Wait for track to actually start before claiming success
-                        await player.play(track)
-                        await asyncio.sleep(1.0)  # Verify it works
-                        
-                        if player.current and player.current.identifier == track.identifier:
-                            # Update queue with working source
-                            current_track['uri'] = track.uri
-                            queue_store.update_track(guild_id, queue_store.get_index(guild_id), current_track)
-                            
-                            source_name = "YouTube" if "yt" in source else "SoundCloud"
-                            logger.info(f"[Music] ✅ Recovery successful with {source_name}: {track.title}")
-                            return True
-                        else:
-                            logger.warning(f"[Music] Track from {source} failed to start properly")
-                        
-                except Exception as e:
-                    logger.debug(f"[Music] Recovery attempt with {source} failed: {e}")
-                    continue
-            
-            logger.warning(f"[Music] ❌ All recovery attempts failed for: {track_title}")
-            return False
-            
-        except Exception as e:
-            logger.error(f"[Music] Recovery process error: {e}")
-            return False
-        finally:
-            # Clear recovery flag
-            player.store(f'recovery_in_progress_{guild_id}', False)
+    # Track recovery intentionally removed for YouTube-only fast mode.
 
     async def play_track_at_index(player: lavalink.DefaultPlayer, guild_id: int) -> bool:
         """Play track at current index from persistent queue with enhanced retry mechanism."""
@@ -554,8 +384,8 @@ def setup(bot: commands.Bot):
         track_title = current_track.get('title', 'Unknown')
         track_uri = current_track.get('uri', '')
         
-        # Strategy 1: Try direct URI first (for SoundCloud direct URLs only)
-        if track_uri and 'soundcloud.com' in track_uri.lower():
+        # Strategy 1: Try direct URI first (works for YouTube URLs and any directly supported sources)
+        if track_uri:
             try:
                 res = await player.node.get_tracks(track_uri)
                 if res and res.tracks:
@@ -564,12 +394,12 @@ def setup(bot: commands.Bot):
                     await player.play(track)
                     player.store('current_track_info', current_track)
                     current_index = queue_store.get_index(guild_id)
-                    logger.info(f"[Music] ✅ Playing direct SoundCloud track at index {current_index}: {track_title}")
+                    logger.info(f"[Music] ✅ Playing direct track at index {current_index}: {track_title}")
                     return True
             except Exception as e:
-                logger.warning(f"[Music] Direct SoundCloud URI failed for {track_title}: {e}")
+                logger.warning(f"[Music] Direct URI failed for {track_title}: {e}")
 
-        # Strategy 2: Smart source selection based on original track type
+        # Strategy 2: Re-resolve via YouTube search
         try:
             search_query = track_title
             if current_track.get('author'):
@@ -577,22 +407,18 @@ def setup(bot: commands.Bot):
             
             logger.info(f"[Music] 🔍 Smart search for: {search_query}")
             
-            # 🎯 SIMPLE SELECTION: SoundCloud only (YouTube completely broken)
+            # 🎯 SIMPLE SELECTION: YouTube search
             search_attempts = [
-                ('scsearch', 'SoundCloud'),       # SoundCloud only - working reliably
+                ('ytsearch', 'YouTube'),
             ]
-            logger.info(f"[Music] 🎵 SoundCloud-only search (YouTube broken)")
+            logger.info(f"[Music] 🎵 YouTube search")
             
             for search_type, source_name in search_attempts:
                 try:
-                    await asyncio.sleep(0.3)  # Prevent rapid API calls
-                    
                     search_result = await player.node.get_tracks(f"{search_type}:{search_query}")
                     
                     if search_result and search_result.tracks:
-                        # Use smart filtering to find the best official content
-                        filtered_tracks = filter_soundcloud_for_official(search_result.tracks, search_query)
-                        track = filtered_tracks[0] if filtered_tracks else search_result.tracks[0]
+                        track = search_result.tracks[0]
                         track.requester = current_track.get('requester')
                         
                         # Play the track
@@ -616,10 +442,9 @@ def setup(bot: commands.Bot):
         except Exception as e:
             logger.error(f"[Music] Enhanced search failed for {track_title}: {e}")
 
-        # Strategy 3: Final fallback - try direct URI one more time with delay
+        # Strategy 3: Final fallback - try direct URI one more time
         if track_uri:
             try:
-                await asyncio.sleep(1)  # Give network a moment
                 res = await player.node.get_tracks(track_uri)
                 if res and res.tracks:
                     track = res.tracks[0]
@@ -775,8 +600,9 @@ def setup(bot: commands.Bot):
             logger.warning(f"[Music] NP aborted: no text channel stored for guild {guild_id}")
             return
 
-        # Clean up any previous NP message
-        await delete_old_np_message(player)
+        # If a panel already exists, update it instead of deleting/resending.
+        existing_message_id = player.fetch('message_id')
+        panel_channel_id = player.fetch('panel_channel_id') or channel_id
 
         try:
             channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
@@ -822,17 +648,54 @@ def setup(bot: commands.Bot):
             embed.set_footer(text=f"Requested by {requester.display_name}", icon_url=avatar_url)
 
         try:
+            # If the panel exists but the stored panel channel differs from the current command channel,
+            # delete the old panel and recreate it in the new channel.
+            if existing_message_id and panel_channel_id and int(panel_channel_id) != int(channel_id):
+                try:
+                    old_channel = bot.get_channel(int(panel_channel_id)) or await bot.fetch_channel(int(panel_channel_id))
+                    old_message = await old_channel.fetch_message(int(existing_message_id))
+                    await old_message.delete()
+                except Exception:
+                    pass
+                try:
+                    player.store('message_id', None)
+                except Exception:
+                    pass
+                existing_message_id = None
+
+            if existing_message_id:
+                try:
+                    message = await channel.fetch_message(existing_message_id)
+                    await message.edit(
+                        embed=embed,
+                        view=PlayerControls(
+                            player,
+                            queue_store=queue_store,
+                            get_prefs_func=get_prefs,
+                            apply_eq_func=apply_equalizer,
+                            eq_presets=EQ_PRESETS,
+                        ),
+                    )
+                    player.store('panel_channel_id', int(channel_id))
+                    logger.info(f"[Music] NP updated: guild={guild_id}, channel={channel.id}, message_id={existing_message_id}, track={track.title}")
+                    return
+                except (discord.NotFound, discord.Forbidden):
+                    player.store('message_id', None)
+                except Exception as e:
+                    logger.debug(f"[Music] NP edit failed; will resend: {e}")
+
             message = await channel.send(
-                embed=embed, 
+                embed=embed,
                 view=PlayerControls(
-                    player, 
+                    player,
                     queue_store=queue_store,
-                    get_prefs_func=get_prefs, 
-                    apply_eq_func=apply_equalizer, 
-                    eq_presets=EQ_PRESETS
-                )
+                    get_prefs_func=get_prefs,
+                    apply_eq_func=apply_equalizer,
+                    eq_presets=EQ_PRESETS,
+                ),
             )
             player.store('message_id', message.id)
+            player.store('panel_channel_id', int(channel_id))
             logger.info(f"[Music] NP sent: guild={guild_id}, channel={channel.id}, message_id={message.id}, track={track.title}")
         except Exception as e:
             logger.error(f"Failed to send Now Playing embed in guild {guild_id} channel {channel.id}: {e}")
@@ -846,52 +709,73 @@ def setup(bot: commands.Bot):
                 
             message_id = player.fetch('message_id')
             channel_id = player.fetch('channel')
+            panel_channel_id = player.fetch('panel_channel_id') or channel_id
             
-            if not message_id or not channel_id:
+            if not channel_id:
+                return
+
+            if not message_id:
+                await send_now_playing_embed(player, guild_id)
                 return
                 
             try:
-                channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
+                # If the command channel changed, move/recreate the panel there.
+                if panel_channel_id and int(panel_channel_id) != int(channel_id):
+                    await send_now_playing_embed(player, guild_id)
+                    return
+
+                channel = bot.get_channel(int(panel_channel_id)) or await bot.fetch_channel(int(panel_channel_id))
                 message = await channel.fetch_message(message_id)
                 
-                if message and message.embeds:
-                    # Get current queue position info
-                    current_index = queue_store.get_index(guild_id)
-                    queue = queue_store.get_queue(guild_id)
-                    queue_length = len(queue)
-                    loop_mode = queue_store.get_guild(guild_id).get('loop', 0)
-                    
-                    embed = message.embeds[0]
-                    
-                    # Update fields
-                    try:
-                        vol = int(player.fetch('volume') or 70)
-                        for i, field in enumerate(embed.fields):
-                            if field.name and "Volume" in field.name:
-                                embed.set_field_at(i, name="<:vol_up:1412531098474512556> Volume", value=f"{vol}%", inline=field.inline)
-                            elif field.name and "Position" in field.name:
-                                position_text = f"{current_index + 1} / {queue_length}" if queue_length > 0 else "0 / 0"
-                                embed.set_field_at(i, name="📍 Position in Queue", value=position_text, inline=field.inline)
-                            elif field.name and "Loop" in field.name:
-                                loop_icons = {0: "➡️ Off", 1: "🔂 Track", 2: "🔁 Queue"}
-                                embed.set_field_at(i, name="<:loop:1412531198147952832> Loop Mode", value=loop_icons.get(loop_mode, "Off"), inline=field.inline)
-                    except Exception as e:
-                        logger.error(f"[Music] Error updating embed fields: {e}")
-                    
-                    # Update the message with new embed and controls
-                    await message.edit(
-                        embed=embed,
-                        view=PlayerControls(
-                            player, 
-                            queue_store=queue_store,
-                            get_prefs_func=get_prefs, 
-                            apply_eq_func=apply_equalizer, 
-                            eq_presets=EQ_PRESETS
+                track = player.current
+                if not track:
+                    return
+
+                embed = discord.Embed(
+                    title="<:music:1415162611942686740> MUSIC PANEL",
+                    description=f"<a:Milk10:1399578671941156996> **[{track.title}]({track.uri})**",
+                    color=discord.Color.blurple(),
+                )
+                if getattr(track, 'artwork_url', None):
+                    embed.set_thumbnail(url=track.artwork_url)
+
+                try:
+                    vol = int(player.fetch('volume') or 70)
+                except Exception:
+                    vol = 70
+
+                embed.add_field(name="<:speaker:1412542837198950511> Volume", value=f"`{vol}%`", inline=True)
+                embed.add_field(name="<:microphone:1415163397657464874> Duration", value=f"`{format_duration(track.duration)}`", inline=True)
+                embed.add_field(name="<:user:1415166117697028116> Author", value=f"`{getattr(track, 'author', 'Unknown')}`", inline=True)
+
+                try:
+                    requester = channel.guild.get_member(getattr(track, 'requester', 0))
+                    if requester:
+                        embed.set_footer(
+                            text=f"Requested by {requester.display_name}",
+                            icon_url=requester.display_avatar.url,
                         )
-                    )
+                except Exception:
+                    pass
+
+                await message.edit(
+                    embed=embed,
+                    view=PlayerControls(
+                        player,
+                        queue_store=queue_store,
+                        get_prefs_func=get_prefs,
+                        apply_eq_func=apply_equalizer,
+                        eq_presets=EQ_PRESETS,
+                    ),
+                )
                     
             except (discord.NotFound, discord.Forbidden):
-                pass
+                # Panel was deleted; recreate.
+                try:
+                    player.store('message_id', None)
+                except Exception:
+                    pass
+                await send_now_playing_embed(player, guild_id)
                 
         except Exception as e:
             logger.error(f"[Music] Error updating now playing panel for guild {guild_id}: {e}")
@@ -909,7 +793,7 @@ def setup(bot: commands.Bot):
             guild_id = player.guild_id
             logger.info(f"[Music] TrackStartEvent received: guild={guild_id}")
             
-            await asyncio.sleep(0.25)  # Small delay for stability
+            await asyncio.sleep(0.15)  # Small delay for stability
             
             # Apply enhanced audio settings and preferred settings per guild
             try:
@@ -936,22 +820,12 @@ def setup(bot: commands.Bot):
             except Exception as e:
                 logger.error(f"[Music] Failed to apply audio settings on start: {e}")
             
-            # 🚫 ANTI-SPAM: Wait and verify track is actually stable before showing panel
-            await asyncio.sleep(3.0)  # Wait 3 seconds to see if track will fail
-            
-            # Only send panel if track is still playing and stable (and not in recovery)
-            recovery_in_progress = player.fetch(f'recovery_in_progress_{guild_id}')
-            if player.current and player.is_playing and not recovery_in_progress:
-                # Double-check no existing panel exists
-                old_message_id = player.fetch('message_id')
-                if not old_message_id:  # Only send if no panel exists
-                    await send_now_playing_embed(player, guild_id)
-                    # Preload next track for seamless playback
-                    asyncio.create_task(preload_next_track(player, guild_id))
-                else:
-                    logger.info(f"[Music] Panel already exists, skipping duplicate")
+            # Sticky panel: always update (or create) on track start.
+            if player.current and player.is_playing:
+                await update_now_playing_panel(guild_id)
+                asyncio.create_task(preload_next_track(player, guild_id))
             else:
-                logger.info(f"[Music] Skipping NP panel - track failed, not playing, or in recovery")
+                logger.info(f"[Music] Skipping NP panel - track failed or not playing")
             
             return
 
@@ -964,8 +838,6 @@ def setup(bot: commands.Bot):
             guild_id = player.guild_id
             reason = str(getattr(event, 'reason', 'unknown')).lower()
             logger.info(f"[Music] TrackEndEvent: guild={guild_id}, reason={reason}")
-            
-            await delete_old_np_message(player)
             
             # Handle only relevant reasons; ignore manual stop/replace and LOADFAILED (already handled by TrackExceptionEvent)
             if reason in {'replaced', 'stopped', 'loadfailed'}:
@@ -989,7 +861,7 @@ def setup(bot: commands.Bot):
                     logger.error(f"[Music] Error during TrackEnd handling: {e}")
             return
 
-        # Track Stuck or Exception -> attempt recovery before skipping
+        # Track Stuck or Exception -> skip quickly (YouTube-only)
         if event_name in {'TrackStuckEvent', 'TrackExceptionEvent'}:
             player = getattr(event, 'player', None)
             if not player:
@@ -998,56 +870,12 @@ def setup(bot: commands.Bot):
             guild_id = player.guild_id
             exception_info = getattr(event, 'exception', 'Unknown error')
             logger.warning(f"[Music] {event_name}: guild={guild_id}, error={exception_info}")
-            
-            # AGGRESSIVE CIRCUIT BREAKER - Completely disable recovery when YouTube is broken
-            circuit_breaker_key = f'circuit_breaker_{guild_id}'
-            circuit_failures = player.fetch(circuit_breaker_key) or 0
-            
-            # Much more aggressive: Only 2 failures before circuit breaker activates
-            if circuit_failures >= 2:
-                logger.warning(f"[Music] 🚫 CIRCUIT BREAKER ACTIVE for guild {guild_id} - All sources failing, skipping immediately")
-                player.store(circuit_breaker_key, circuit_failures + 1)  # Continue counting failures
-                await skip_to_next(player, guild_id)
-                return
-            
-            # Implement per-track recovery limiting - ONLY 1 attempt per track
-            recovery_count_key = f'recovery_attempts_{guild_id}_{getattr(player.current, "identifier", "unknown")}'
-            recovery_count = player.fetch(recovery_count_key) or 0
-            
-            if recovery_count >= 1:  # Only 1 recovery attempt per track
-                logger.warning(f"[Music] Maximum recovery attempts (1) reached for current track, skipping")
-                player.store(recovery_count_key, 0)  # Reset counter
-                player.store(circuit_breaker_key, circuit_failures + 1)  # Increment circuit breaker
-                await skip_to_next(player, guild_id)
-                return
-            
-            # Check if recovery is already in progress (additional safeguard)
-            if player.fetch(f'recovery_in_progress_{guild_id}'):
-                logger.warning(f"[Music] Recovery already in progress for guild {guild_id}, skipping duplicate attempt")
-                return
-            
             lock = get_lock(guild_id)
             async with lock:
                 try:
-                    # Increment recovery attempt counter BEFORE attempting recovery
-                    player.store(recovery_count_key, recovery_count + 1)
-                    
-                    # Try to recover the current track
-                    recovery_success = await attempt_track_recovery(player, guild_id)
-                    
-                    if recovery_success:
-                        # Reset circuit breaker on successful recovery
-                        player.store(circuit_breaker_key, max(0, circuit_failures - 1))  # Reduce failures
-                        logger.info(f"[Music] ✅ Recovery successful, circuit breaker reduced to {max(0, circuit_failures - 1)}")
-                    else:
-                        # If recovery fails, skip to next track and increment circuit breaker
-                        logger.warning(f"[Music] ❌ Recovery failed, incrementing circuit breaker")
-                        player.store(circuit_breaker_key, circuit_failures + 1)
-                        await skip_to_next(player, guild_id)
-                        
+                    await skip_to_next(player, guild_id)
                 except Exception as e:
-                    logger.error(f"[Music] Failed to recover from {event_name}: {e}")
-                    player.store(circuit_breaker_key, circuit_failures + 1)  # Increment circuit breaker on error
+                    logger.error(f"[Music] Failed to handle {event_name}: {e}")
                     await skip_to_next(player, guild_id)
             return
 
@@ -1084,15 +912,14 @@ def setup(bot: commands.Bot):
                 query = query.strip('<>')
                 is_url = URL_REGEX.match(query) is not None
 
-                # 🚫 Block YouTube URLs completely 
-                if is_url and any(domain in query.lower() for domain in ['youtube.com', 'youtu.be', 'music.youtube.com', 'yt.be']):
-                    embed = discord.Embed(
-                        title="🚫 YouTube Not Supported",
-                        description="Hey there! YouTube has blocked access to their music content, so I can't play YouTube links anymore. 😔\n\n**Instead, try searching by song name!** For example:\n`akio play naruto silhouette` instead of a YouTube link.\n\nThis actually works better and finds higher quality audio! 🎵",
-                        color=discord.Color.red()
+                # YouTube-only: reject non-YouTube URLs for clarity and speed.
+                if is_url and not is_youtube_url(query):
+                    return await ctx.send(
+                        embed=discord.Embed(
+                            description="Only **YouTube** links are supported. Try searching by name instead.",
+                            color=discord.Color.red(),
+                        )
                     )
-                    embed.set_footer(text="💡 Text searches use SoundCloud which has better reliability!")
-                    return await ctx.send(embed=embed)
 
                 temp_msg = await ctx.send(
                     embed=discord.Embed(
@@ -1141,6 +968,20 @@ def setup(bot: commands.Bot):
                 else:
                     # Single track
                     chosen = results.tracks[0]
+
+                    alternatives: list[dict] = []
+                    try:
+                        for t in results.tracks[1:11]:
+                            alternatives.append({
+                                'title': t.title,
+                                'uri': t.uri,
+                                'duration': t.duration,
+                                'identifier': t.identifier,
+                                'author': t.author,
+                            })
+                    except Exception:
+                        alternatives = []
+
                     track_data = {
                         'title': chosen.title,
                         'uri': chosen.uri,
@@ -1148,22 +989,37 @@ def setup(bot: commands.Bot):
                         'identifier': chosen.identifier,
                         'author': chosen.author,
                         'requester': ctx.author.id,
+                        'alternatives': alternatives,
                     }
                     
                     # Add to queue
                     queue_store.append_track(ctx.guild.id, track_data)
+
+                    added_index = len(queue_store.get_queue(ctx.guild.id)) - 1
                     
                     # Debug logging for queue state
                     current_index = queue_store.get_index(ctx.guild.id)
                     queue_length = len(queue_store.get_queue(ctx.guild.id))
                     logger.info(f"[Music] Added track: '{chosen.title}' | Queue length: {queue_length} | Current index: {current_index}")
                     
-                    await ctx.send(
+                    added_message = await ctx.send(
                         embed=discord.Embed(
                             description=f"<a:verify:1399579399107379271> Added **[{chosen.title}]({chosen.uri})** to the queue.", 
                             color=discord.Color.green()
                         )
                     )
+
+                    # Persist the message reference so the 🔎 button can update it later if the user swaps results.
+                    try:
+                        msg_id = getattr(added_message, 'id', None)
+                        ch_id = getattr(getattr(added_message, 'channel', None), 'id', None)
+                        if msg_id and ch_id:
+                            latest = dict(queue_store.get_queue(ctx.guild.id)[added_index])
+                            latest['added_message_id'] = int(msg_id)
+                            latest['added_channel_id'] = int(ch_id)
+                            queue_store.update_track(ctx.guild.id, added_index, latest)
+                    except Exception as e:
+                        logger.debug(f"[Music] Failed to store added-message metadata: {e}")
 
                 # If nothing is playing, start playback  
                 if not player.is_playing:

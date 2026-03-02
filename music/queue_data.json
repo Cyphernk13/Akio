@@ -1,7 +1,226 @@
 {
   "1122196695317483651": {
-    "queue": [],
-    "index": 0,
+    "queue": [
+      {
+        "title": "Nanami momozono Playlist 🎐🤍 Shoujo girl Playlist ˚୨୧⋆｡˚ ⋆",
+        "uri": "https://www.youtube.com/watch?v=A_y8OEpMVA0",
+        "duration": 1260000,
+        "identifier": "A_y8OEpMVA0",
+        "author": "Sweetgiih  𝅄 ꣑ৎ ࣪ㅤ𓈒",
+        "requester": 603003195911831573
+      },
+      {
+        "title": "Bon Jovi - It's My Life (Lyrics)",
+        "uri": "https://www.youtube.com/watch?v=o9YyEeHSC4U",
+        "duration": 225000,
+        "identifier": "o9YyEeHSC4U",
+        "author": "Cactus Rock",
+        "requester": 603003195911831573
+      },
+      {
+        "title": "Vance Joy - Riptide (Lyrics)",
+        "uri": "https://www.youtube.com/watch?v=lYoWuaw5nSk",
+        "duration": 230000,
+        "identifier": "lYoWuaw5nSk",
+        "author": "7clouds",
+        "requester": 603003195911831573
+      },
+      {
+        "title": "John Denver - Take Me Home, Country Roads (Lyrics)",
+        "uri": "https://www.youtube.com/watch?v=uu7j_xljCRY",
+        "duration": 190000,
+        "identifier": "uu7j_xljCRY",
+        "author": "7clouds",
+        "requester": 603003195911831573
+      },
+      {
+        "title": "Oddloop",
+        "uri": "https://www.youtube.com/watch?v=Pd2aPKPYlvw",
+        "duration": 247000,
+        "identifier": "Pd2aPKPYlvw",
+        "author": "FREDERIC official",
+        "requester": 603003195911831573,
+        "alternatives": [],
+        "added_message_id": 1478073488211447880,
+        "added_channel_id": 1122201017782648842
+      },
+      {
+        "title": "siinamota - Young Girl A (Official video with English sub)",
+        "uri": "https://www.youtube.com/watch?v=AqI97zHMoQw",
+        "duration": 243000,
+        "identifier": "AqI97zHMoQw",
+        "author": "U/M/A/A Inc.",
+        "requester": 603003195911831573,
+        "alternatives": [
+          {
+            "title": "siinamota - Young Girl A (Official Audio)",
+            "uri": "https://www.youtube.com/watch?v=M32NcztJfaY",
+            "duration": 227000,
+            "identifier": "M32NcztJfaY",
+            "author": "U/M/A/A Inc."
+          },
+          {
+            "title": "young girl a 1 hour",
+            "uri": "https://www.youtube.com/watch?v=5v-r_jslSzM",
+            "duration": 3627000,
+            "identifier": "5v-r_jslSzM",
+            "author": "yomicha"
+          },
+          {
+            "title": "[BEST ONE] Siinamota - Young Girl A [BREAKCORE EXTENDED REMIX]",
+            "uri": "https://www.youtube.com/watch?v=3zzCyP5pdak",
+            "duration": 175000,
+            "identifier": "3zzCyP5pdak",
+            "author": "slattington"
+          },
+          {
+            "title": "Young Girl A (English Cover)「少女A」【Will Stetson】",
+            "uri": "https://www.youtube.com/watch?v=kc_p-CBBbSg",
+            "duration": 243000,
+            "identifier": "kc_p-CBBbSg",
+            "author": "Will Stetson"
+          },
+          {
+            "title": "siinamota - Young Girl A (Piano + Sheet Music Animation)",
+            "uri": "https://www.youtube.com/watch?v=Frrd5hy-llk",
+            "duration": 257000,
+            "identifier": "Frrd5hy-llk",
+            "author": "Pira"
+          },
+          {
+            "title": "siinamota - Young Girl A (Evil) w/ Lyrics [ROM/EN]",
+            "uri": "https://www.youtube.com/watch?v=y0BqKDW4cjU",
+            "duration": 244000,
+            "identifier": "y0BqKDW4cjU",
+            "author": "Random Neuro"
+          },
+          {
+            "title": "siinamota - Young Girl A (slowed)",
+            "uri": "https://www.youtube.com/watch?v=HugtGPq-sqs",
+            "duration": 243000,
+            "identifier": "HugtGPq-sqs",
+            "author": "Chamber Of Randoms"
+          },
+          {
+            "title": "siinamota Piano - Young Girl A",
+            "uri": "https://www.youtube.com/watch?v=EOwsMjMSEh4",
+            "duration": 110000,
+            "identifier": "EOwsMjMSEh4",
+            "author": "Haoto 葉音 - Anime on Piano"
+          },
+          {
+            "title": "Siinamota - Girl A ( 少女A ) [Slowed/Reverbed]",
+            "uri": "https://www.youtube.com/watch?v=4ezUwJBbOy0",
+            "duration": 283000,
+            "identifier": "4ezUwJBbOy0",
+            "author": "Jusia's Messy Alt"
+          },
+          {
+            "title": "The Tragic Backstory Behind Young Girl A",
+            "uri": "https://www.youtube.com/watch?v=njQxmSQTx1U",
+            "duration": 469000,
+            "identifier": "njQxmSQTx1U",
+            "author": "Whispii"
+          }
+        ],
+        "added_message_id": 1478074781835460649,
+        "added_channel_id": 1122201017782648842
+      },
+      {
+        "title": "Black Clover Opening 10 Full『Black Catcher』by Vickeblanka | Lyrics",
+        "uri": "https://www.youtube.com/watch?v=5C8yvJUVB-0",
+        "duration": 232000,
+        "identifier": "5C8yvJUVB-0",
+        "author": "Black Clover Music Collection",
+        "requester": 603003195911831573,
+        "alternatives": [],
+        "added_message_id": 1478075429834457088,
+        "added_channel_id": 1122201017782648842
+      },
+      {
+        "title": "siinamota - Young Girl A (Official video with English sub)",
+        "uri": "https://www.youtube.com/watch?v=AqI97zHMoQw",
+        "duration": 243000,
+        "identifier": "AqI97zHMoQw",
+        "author": "U/M/A/A Inc.",
+        "requester": 603003195911831573,
+        "alternatives": [
+          {
+            "title": "siinamota - Young Girl A (Official Audio)",
+            "uri": "https://www.youtube.com/watch?v=M32NcztJfaY",
+            "duration": 227000,
+            "identifier": "M32NcztJfaY",
+            "author": "U/M/A/A Inc."
+          },
+          {
+            "title": "young girl a 1 hour",
+            "uri": "https://www.youtube.com/watch?v=5v-r_jslSzM",
+            "duration": 3627000,
+            "identifier": "5v-r_jslSzM",
+            "author": "yomicha"
+          },
+          {
+            "title": "[BEST ONE] Siinamota - Young Girl A [BREAKCORE EXTENDED REMIX]",
+            "uri": "https://www.youtube.com/watch?v=3zzCyP5pdak",
+            "duration": 175000,
+            "identifier": "3zzCyP5pdak",
+            "author": "slattington"
+          },
+          {
+            "title": "siinamota - Young Girl A (Piano + Sheet Music Animation)",
+            "uri": "https://www.youtube.com/watch?v=Frrd5hy-llk",
+            "duration": 257000,
+            "identifier": "Frrd5hy-llk",
+            "author": "Pira"
+          },
+          {
+            "title": "Young Girl A (English Cover)「少女A」【Will Stetson】",
+            "uri": "https://www.youtube.com/watch?v=kc_p-CBBbSg",
+            "duration": 243000,
+            "identifier": "kc_p-CBBbSg",
+            "author": "Will Stetson"
+          },
+          {
+            "title": "Siinamota - Girl A ( 少女A ) [Slowed/Reverbed]",
+            "uri": "https://www.youtube.com/watch?v=4ezUwJBbOy0",
+            "duration": 283000,
+            "identifier": "4ezUwJBbOy0",
+            "author": "Jusia's Messy Alt"
+          },
+          {
+            "title": "siinamota - Young Girl A (slowed)",
+            "uri": "https://www.youtube.com/watch?v=HugtGPq-sqs",
+            "duration": 243000,
+            "identifier": "HugtGPq-sqs",
+            "author": "Chamber Of Randoms"
+          },
+          {
+            "title": "SIINAMOTA~ YOUNG GIRL A (Super Slowed)",
+            "uri": "https://www.youtube.com/watch?v=q3VlhfsrRjc",
+            "duration": 332000,
+            "identifier": "q3VlhfsrRjc",
+            "author": "Smoke"
+          },
+          {
+            "title": "siinamota - Young Girl A (Evil) w/ Lyrics [ROM/EN]",
+            "uri": "https://www.youtube.com/watch?v=y0BqKDW4cjU",
+            "duration": 244000,
+            "identifier": "y0BqKDW4cjU",
+            "author": "Random Neuro"
+          },
+          {
+            "title": "what if i sang young girl a while crying in one take?",
+            "uri": "https://www.youtube.com/watch?v=Q3HoJYd2MeU",
+            "duration": 104000,
+            "identifier": "Q3HoJYd2MeU",
+            "author": "Kagaya Iro"
+          }
+        ],
+        "added_message_id": 1478075626861760545,
+        "added_channel_id": 1122201017782648842
+      }
+    ],
+    "index": 7,
     "loop": 0,
     "shuffle": false,
     "volume": 70

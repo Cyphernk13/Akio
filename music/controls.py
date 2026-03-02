@@ -135,6 +135,202 @@ class PlayerControls(discord.ui.View):
             except:
                 pass
 
+    async def _edit_added_to_queue_message(self, interaction: discord.Interaction, track_data: Dict):
+        """Best-effort: update the original 'Added ... to the queue' message for the current queue item."""
+        try:
+            if not self.queue_store:
+                return
+            added_message_id = track_data.get('added_message_id')
+            added_channel_id = track_data.get('added_channel_id')
+            if not added_message_id or not added_channel_id:
+                return
+
+            channel = interaction.client.get_channel(int(added_channel_id))  # type: ignore
+            if not channel:
+                channel = await interaction.client.fetch_channel(int(added_channel_id))  # type: ignore
+            message = await channel.fetch_message(int(added_message_id))
+            if not message:
+                return
+
+            await message.edit(
+                embed=discord.Embed(
+                    description=f"<a:verify:1399579399107379271> Added **[{track_data.get('title','Unknown')}]({track_data.get('uri','')})** to the queue.",
+                    color=discord.Color.green(),
+                )
+            )
+        except Exception as e:
+            logger.debug(f"[PlayerControls] Couldn't update added-to-queue message: {e}")
+
+    def _normalize_query(self, query: str) -> str:
+        return " ".join((query or "").split())
+
+    async def _get_current_track_and_index(self, guild_id: int):
+        if not self.queue_store:
+            return None, None
+        idx = self.queue_store.get_index(guild_id)
+        queue = self.queue_store.get_queue(guild_id)
+        if not (0 <= idx < len(queue)):
+            return None, None
+        return queue[idx], idx
+
+    async def _load_youtube_alternatives(self, query: str, max_items: int = 10) -> List[Dict]:
+        """Run a ytsearch and return a JSON-serializable list of alternative tracks."""
+        normalized = self._normalize_query(query)
+        if not normalized:
+            return []
+
+        results = await self.player.node.get_tracks(f"ytsearch:{normalized}")
+        if not results or not getattr(results, 'tracks', None):
+            return []
+
+        alternatives: List[Dict] = []
+        for t in results.tracks[: max_items + 1]:
+            alternatives.append({
+                'title': getattr(t, 'title', 'Unknown'),
+                'uri': getattr(t, 'uri', ''),
+                'duration': getattr(t, 'duration', 0),
+                'identifier': getattr(t, 'identifier', ''),
+                'author': getattr(t, 'author', ''),
+            })
+        return alternatives
+
+    @discord.ui.button(emoji="🔎", style=discord.ButtonStyle.secondary, row=1)
+    async def search(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Pick another YouTube result for the currently playing queue item."""
+        try:
+            if not self.queue_store:
+                return await interaction.response.send_message("Queue system not available.", ephemeral=True)
+
+            guild_id = interaction.guild.id
+            current_track, current_index = await self._get_current_track_and_index(guild_id)
+            if current_track is None or current_index is None:
+                return await interaction.response.send_message("Nothing is currently queued/playing.", ephemeral=True)
+
+            # Prefer cached alternatives from /play; otherwise generate from current title/author.
+            alternatives: List[Dict] = list(current_track.get('alternatives') or [])
+            if not alternatives:
+                query = f"{current_track.get('author','')} {current_track.get('title','')}".strip()
+                alternatives = await self._load_youtube_alternatives(query, max_items=10)
+
+                # Drop the first result if it matches the current uri (so the dropdown feels like "other choices").
+                try:
+                    cur_uri = current_track.get('uri')
+                    alternatives = [a for a in alternatives if a.get('uri') and a.get('uri') != cur_uri]
+                except Exception:
+                    pass
+
+                # Cache for next time.
+                try:
+                    updated = dict(current_track)
+                    updated['alternatives'] = alternatives
+                    self.queue_store.update_track(guild_id, int(current_index), updated)
+                    current_track = updated
+                except Exception:
+                    pass
+
+            if not alternatives:
+                return await interaction.response.send_message(
+                    "No alternative results available for this track.",
+                    ephemeral=True,
+                )
+
+            requester_id = interaction.user.id
+            outer = self
+
+            class AlternativePicker(discord.ui.View):
+                def __init__(self):
+                    super().__init__(timeout=60)
+
+                    options: List[discord.SelectOption] = []
+                    for i, alt in enumerate(alternatives[:10]):
+                        label = alt.get('title') or 'Unknown'
+                        if len(label) > 100:
+                            label = label[:97] + '...'
+                        desc = alt.get('author') or ''
+                        if desc and len(desc) > 100:
+                            desc = desc[:97] + '...'
+                        options.append(
+                            discord.SelectOption(
+                                label=label,
+                                description=desc or None,
+                                value=str(i),
+                            )
+                        )
+
+                    self.select = discord.ui.Select(
+                        placeholder="Pick another result…",
+                        min_values=1,
+                        max_values=1,
+                        options=options,
+                    )
+                    self.select.callback = self._on_select  # type: ignore
+                    self.add_item(self.select)
+
+                async def interaction_check(self, itx: discord.Interaction) -> bool:
+                    if itx.user and itx.user.id == requester_id:
+                        return True
+                    await itx.response.send_message("Only the user who opened this can use it.", ephemeral=True)
+                    return False
+
+                async def _on_select(self, itx: discord.Interaction):
+                    # Defer immediately so we never hit Discord's 3s timeout.
+                    await itx.response.defer(ephemeral=True, thinking=True)
+
+                    try:
+                        picked = int(self.select.values[0])
+                        alt = alternatives[picked]
+
+                        # Update queue item data.
+                        new_data = dict(current_track)
+                        new_data.update({
+                            'title': alt.get('title'),
+                            'uri': alt.get('uri'),
+                            'duration': alt.get('duration'),
+                            'identifier': alt.get('identifier'),
+                            'author': alt.get('author'),
+                            'requester': requester_id,
+                            'alternatives': [],
+                        })
+
+                        if not outer.queue_store.update_track(guild_id, int(current_index), new_data):
+                            return await itx.edit_original_response(content="That track is no longer in the queue.")
+
+                        # Switch playback if we're currently on this index.
+                        try:
+                            outer.queue_store.set_index(guild_id, int(current_index))
+                            res = await outer.player.node.get_tracks(new_data.get('uri'))
+                            if res and res.tracks:
+                                track_obj = res.tracks[0]
+                                track_obj.requester = requester_id
+                                await outer.player.play(track_obj)
+                        except Exception as e:
+                            logger.debug(f"[PlayerControls] Failed to switch playback: {e}")
+
+                        # Update the original 'Added to queue' message if we have it.
+                        await outer._edit_added_to_queue_message(itx, new_data)
+
+                        for child in self.children:
+                            child.disabled = True  # type: ignore
+                        await itx.edit_original_response(
+                            content=f"✅ Switched to: **{new_data.get('title','Unknown')}**",
+                            view=self,
+                        )
+                    except Exception as e:
+                        logger.error(f"[PlayerControls] Alternative picker error: {e}")
+                        await itx.edit_original_response(content="Couldn't switch to that result.")
+
+            await interaction.response.send_message(
+                "Choose another song:",
+                view=AlternativePicker(),
+                ephemeral=True,
+            )
+        except Exception as e:
+            logger.error(f"[PlayerControls] Error opening search picker: {e}")
+            try:
+                await interaction.response.send_message("Couldn't open the picker.", ephemeral=True)
+            except Exception:
+                pass
+
     @discord.ui.button(label="Pause", style=discord.ButtonStyle.secondary, row=0)
     async def pause_resume(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Toggle pause/resume."""
