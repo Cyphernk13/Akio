@@ -154,7 +154,7 @@ def get_user_context(user_id: str, display_name: str) -> str:
     if user_data["interests"]:
         top_interests = user_data["interests"][:3]  # Only top 3
         interests_text = ", ".join(top_interests)
-        context_parts.append(f"They like: {interests_text}.")
+        context_parts.append(f"They like: {interests_text}. (Remember this context, but do not mention these interests unless they bring it up first).")
     
     return " ".join(context_parts) if context_parts else f"You know {display_name} (@{username})."
 
@@ -167,7 +167,7 @@ generation_config = {
 }
 
 model = genai.GenerativeModel(
-    model_name="gemini-3-flash-preview",
+    model_name="gemini-3.1-flash-lite-preview",
     generation_config=generation_config,
     system_instruction=system_instruction,
 )
