@@ -226,8 +226,91 @@
     "volume": 70
   },
   "603004526626210015": {
-    "queue": [],
-    "index": 0,
+    "queue": [
+      {
+        "title": "Paul Russell - Lil Boo Thang (Lyric Video)",
+        "uri": "https://www.youtube.com/watch?v=MoCaWpRAkVA",
+        "duration": 115000,
+        "identifier": "MoCaWpRAkVA",
+        "author": "Paul Russell",
+        "requester": 603003195911831573,
+        "alternatives": [
+          {
+            "title": "Paul Russell - Lil Boo Thang (Official Video)",
+            "uri": "https://www.youtube.com/watch?v=5AgDZcM8In8",
+            "duration": 136000,
+            "identifier": "5AgDZcM8In8",
+            "author": "Paul Russell"
+          },
+          {
+            "title": "Paul Russell - Lil Boo Thang (Lyrics)",
+            "uri": "https://www.youtube.com/watch?v=l9KLZVs9_Ic",
+            "duration": 115000,
+            "identifier": "l9KLZVs9_Ic",
+            "author": "7clouds"
+          },
+          {
+            "title": "A Minecraft Movie Lil Boo Thang Scene (High Quality)",
+            "uri": "https://www.youtube.com/watch?v=ujTT24HlBHM",
+            "duration": 70000,
+            "identifier": "ujTT24HlBHM",
+            "author": "Charmaster969"
+          },
+          {
+            "title": "Paul Russell - Lil Boo Thang (Live at Capital's Summertime Ball 2024) | Capital",
+            "uri": "https://www.youtube.com/watch?v=oqsTRTFUUM0",
+            "duration": 232000,
+            "identifier": "oqsTRTFUUM0",
+            "author": "Capital FM"
+          },
+          {
+            "title": "Lil Boo Thang",
+            "uri": "https://www.youtube.com/watch?v=Ex9YV1mJqik",
+            "duration": 117000,
+            "identifier": "Ex9YV1mJqik",
+            "author": "David Shannon"
+          },
+          {
+            "title": "Lil Boo Thang - Paul Russell [Audio]",
+            "uri": "https://www.youtube.com/watch?v=WmHp4Lk467I",
+            "duration": 122000,
+            "identifier": "WmHp4Lk467I",
+            "author": "JLXS MUSIC"
+          },
+          {
+            "title": "Paul Russell - Lil Boo Thang (Mix Lyrics)",
+            "uri": "https://www.youtube.com/watch?v=jDw6EbykcGU",
+            "duration": 505000,
+            "identifier": "jDw6EbykcGU",
+            "author": "Happy4U Lyrics"
+          },
+          {
+            "title": "Paul Russell - Lil Boo Thang (Lyrics)",
+            "uri": "https://www.youtube.com/watch?v=hGcfGSthys0",
+            "duration": 115000,
+            "identifier": "hGcfGSthys0",
+            "author": "BagOnly"
+          },
+          {
+            "title": "Paul Russell - Lil Boo Thang",
+            "uri": "https://www.youtube.com/watch?v=mkV7aJqXFDg",
+            "duration": 115000,
+            "identifier": "mkV7aJqXFDg",
+            "author": "Pizza Music"
+          },
+          {
+            "title": "Paul Russell  Lil Boo Thang HD",
+            "uri": "https://www.youtube.com/watch?v=KGXMCKVsH-c",
+            "duration": 115000,
+            "identifier": "KGXMCKVsH-c",
+            "author": "Leon B. Sweet"
+          }
+        ],
+        "added_message_id": 1500199018209345676,
+        "added_channel_id": 871854898201915452
+      }
+    ],
+    "index": -1,
     "loop": 0,
     "shuffle": false,
     "volume": 70
